@@ -1,25 +1,33 @@
-# Backend Dockerfile
-FROM node:20-alpine
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
 
-# Install build dependencies for native modules (sharp, heic-convert) + ffmpeg
-RUN apk add --no-cache python3 make g++ vips-dev ffmpeg
+# Install build dependencies for native modules (sharp, heic-convert)
+RUN apk add --no-cache python3 make g++ vips-dev libc6-compat
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install ALL deps (devDeps needed for tsc)
 COPY package*.json ./
+RUN npm ci --build-from-source
 
-# Install ALL dependencies (including devDeps — needed for tsc build)
-RUN npm ci
-
-# Copy source code
+# Copy source and compile TypeScript → dist/
 COPY . .
-
-# Build TypeScript → dist/
 RUN npm run build
 
-# Remove devDependencies after build to keep image lean
-RUN npm prune --production
+# ── Stage 2: Production image ─────────────────────────────────────────────────
+FROM node:20-alpine
+
+# Install runtime-only native deps + ffmpeg
+RUN apk add --no-cache vips ffmpeg libc6-compat python3 make g++
+
+WORKDIR /app
+
+# Copy package files and install production deps only
+COPY package*.json ./
+RUN npm ci --omit=dev --build-from-source
+
+# Copy compiled output from builder
+COPY --from=builder /app/dist ./dist
 
 # Create uploads directory
 RUN mkdir -p uploads
@@ -27,9 +35,9 @@ RUN mkdir -p uploads
 # Expose port
 EXPOSE 3001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+# Health check — wait up to 60s for DB connection on cold start
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s \
   CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start the application
-CMD ["npm", "start"]
+# Run node directly (no npm wrapper)
+CMD ["node", "dist/index.js"]

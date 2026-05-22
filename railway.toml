@@ -1,12 +1,8 @@
 [build]
-builder = "NIXPACKS"
-# Install ALL deps (including devDeps for tsc), build TypeScript, then prune to prod-only
-buildCommand = "cd backend && npm ci && npm run build && npm prune --production"
+dockerfilePath = "backend/Dockerfile"
+buildCommand = ""
 
 [deploy]
-startCommand = "cd backend && npm start"
+startCommand = ""
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
-
-[build.nixpacksPlan.phases.setup]
-nixPkgs = ["ffmpeg"]
