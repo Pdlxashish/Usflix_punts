@@ -1,7 +1,7 @@
 # Backend Dockerfile
 FROM node:20-alpine
 
-# Install build dependencies for native modules (sharp, heic-convert) + ffmpeg for video thumbnails
+# Install build dependencies for native modules (sharp, heic-convert) + ffmpeg
 RUN apk add --no-cache python3 make g++ vips-dev ffmpeg
 
 WORKDIR /app
@@ -9,14 +9,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install ALL dependencies (including devDeps — needed for tsc build)
+RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Build TypeScript
+# Build TypeScript → dist/
 RUN npm run build
+
+# Remove devDependencies after build to keep image lean
+RUN npm prune --production
 
 # Create uploads directory
 RUN mkdir -p uploads
