@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Diagnostic Tool</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #e50914;
+            margin-top: 0;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #e50914;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #e50914;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #b20710;
+        }
+        .result {
+            background: #f9f9f9;
+            border-left: 4px solid #e50914;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+        .warning {
+            border-left-color: #ffc107;
+            background: #fffbf0;
+        }
+        .step {
+            margin: 20px 0;
+        }
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #e50914;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔍 Background Diagnostic Tool</h1>
+        <p>This tool will help you diagnose why your background isn't showing.</p>
+    </div>
+
+    <div class="card">
+        <h2>Step 1: Check Backend Connection</h2>
+        <button onclick="checkBackend()">Test Backend Connection</button>
+        <div id="backend-result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Step 2: Check Branding Settings</h2>
+        <button onclick="checkBranding()">Fetch Branding Settings</button>
+        <div id="branding-result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Step 3: Check Current Page Background</h2>
+        <button onclick="checkCurrentBackground()">Check Applied Styles</button>
+        <div id="current-result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Step 4: Test Image URL</h2>
+        <input type="text" id="image-url" placeholder="Paste your background image URL" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px;">
+        <button onclick="testImageUrl()">Test Image URL</button>
+        <div id="image-result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Step 5: Apply Background Manually (Test)</h2>
+        <p>This will temporarily apply a test background to see if the mechanism works:</p>
+        <button onclick="applyTestBackground()">Apply Red Test Background</button>
+        <button onclick="applyTestImage()">Apply Test Image</button>
+        <button onclick="clearBackground()">Clear Background</button>
+        <div id="manual-result"></div>
+    </div>
+
+    <div class="card">
+        <h2>📋 Quick Checklist</h2>
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Backend Running?</strong> - Check if http://localhost:3001 is accessible
+        </div>
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Frontend Running?</strong> - Check if http://localhost:5173 is accessible
+        </div>
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>Saved Changes?</strong> - Did you click "Save changes" in admin panel?
+        </div>
+        <div class="step">
+            <span class="step-number">4</span>
+            <strong>Hard Refresh?</strong> - Press Ctrl+Shift+R to clear cache
+        </div>
+        <div class="step">
+            <span class="step-number">5</span>
+            <strong>Image Uploaded?</strong> - Is the image file in backend/uploads folder?
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3001/api';
+
+        function showResult(elementId, message, type = 'result') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+
+        async function checkBackend() {
+            showResult('backend-result', 'Testing connection...', 'warning');
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('backend-result', 
+                        `✅ Backend is running!\n\nResponse: ${JSON.stringify(data, null, 2)}`, 
+                        'success'
+                    );
+                } else {
+                    showResult('backend-result', 
+                        `❌ Backend responded with status: ${response.status}\n\nMake sure backend is running: cd backend && npm run dev`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                showResult('backend-result', 
+                    `❌ Cannot connect to backend!\n\nError: ${error.message}\n\nMake sure backend is running on port 3001:\ncd backend\nnpm run dev`, 
+                    'error'
+                );
+            }
+        }
+
+        async function checkBranding() {
+            showResult('branding-result', 'Fetching branding settings...', 'warning');
+            try {
+                const response = await fetch(`${API_URL}/branding`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const bgSettings = {
+                        backgroundImageUrl: data.backgroundImageUrl,
+                        backgroundPattern: data.backgroundPattern,
+                        backgroundGradient: data.backgroundGradient
+                    };
+                    
+                    let message = '✅ Branding settings loaded!\n\n';
+                    message += `Background Image URL: ${bgSettings.backgroundImageUrl || '(empty)'}\n`;
+                    message += `Pattern: ${bgSettings.backgroundPattern}\n`;
+                    message += `Gradient: ${bgSettings.backgroundGradient}\n\n`;
+                    
+                    if (!bgSettings.backgroundImageUrl) {
+                        message += '⚠️ WARNING: No background image URL is set!\n';
+                        message += 'Go to Admin Panel → Style → Background and upload an image.';
+                        showResult('branding-result', message, 'warning');
+                    } else {
+                        message += 'Full settings:\n' + JSON.stringify(bgSettings, null, 2);
+                        showResult('branding-result', message, 'success');
+                    }
+                } else {
+                    showResult('branding-result', 
+                        `❌ Failed to fetch branding: ${response.status}`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                showResult('branding-result', 
+                    `❌ Error fetching branding: ${error.message}`, 
+                    'error'
+                );
+            }
+        }
+
+        function checkCurrentBackground() {
+            const body = document.body;
+            const styles = {
+                backgroundImage: body.style.backgroundImage || window.getComputedStyle(body).backgroundImage,
+                backgroundSize: body.style.backgroundSize || window.getComputedStyle(body).backgroundSize,
+                backgroundPosition: body.style.backgroundPosition || window.getComputedStyle(body).backgroundPosition,
+                backgroundAttachment: body.style.backgroundAttachment || window.getComputedStyle(body).backgroundAttachment,
+                backgroundRepeat: body.style.backgroundRepeat || window.getComputedStyle(body).backgroundRepeat,
+            };
+
+            let message = 'Current body background styles:\n\n';
+            message += JSON.stringify(styles, null, 2);
+
+            if (styles.backgroundImage === 'none' || !styles.backgroundImage) {
+                message += '\n\n⚠️ No background is currently applied!';
+                showResult('current-result', message, 'warning');
+            } else {
+                message += '\n\n✅ Background styles are applied!';
+                showResult('current-result', message, 'success');
+            }
+        }
+
+        async function testImageUrl() {
+            const url = document.getElementById('image-url').value.trim();
+            if (!url) {
+                showResult('image-result', '❌ Please enter an image URL', 'error');
+                return;
+            }
+
+            showResult('image-result', 'Testing image URL...', 'warning');
+            
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                if (response.ok) {
+                    showResult('image-result', 
+                        `✅ Image URL is accessible!\n\nStatus: ${response.status}\nContent-Type: ${response.headers.get('content-type')}`, 
+                        'success'
+                    );
+                } else {
+                    showResult('image-result', 
+                        `❌ Image URL returned status: ${response.status}\n\nThe image might not be accessible.`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                showResult('image-result', 
+                    `❌ Cannot access image URL!\n\nError: ${error.message}\n\nCheck if the URL is correct and the server is running.`, 
+                    'error'
+                );
+            }
+        }
+
+        function applyTestBackground() {
+            document.body.style.backgroundImage = 'linear-gradient(to bottom right, #ff0000, #990000)';
+            document.body.style.backgroundSize = 'cover';
+            document.body.style.backgroundPosition = 'center';
+            document.body.style.backgroundAttachment = 'fixed';
+            showResult('manual-result', 
+                '✅ Applied red gradient background!\n\nIf you can see a red background, the mechanism works.\nThe issue is with your image URL or branding settings.', 
+                'success'
+            );
+        }
+
+        function applyTestImage() {
+            const testImageUrl = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920';
+            document.body.style.backgroundImage = `url(${testImageUrl})`;
+            document.body.style.backgroundSize = 'cover';
+            document.body.style.backgroundPosition = 'center';
+            document.body.style.backgroundAttachment = 'fixed';
+            document.body.style.backgroundRepeat = 'no-repeat';
+            showResult('manual-result', 
+                '✅ Applied test image background!\n\nIf you can see a mountain image, the mechanism works.\nThe issue is with your specific image URL or branding settings.', 
+                'success'
+            );
+        }
+
+        function clearBackground() {
+            document.body.style.backgroundImage = '';
+            document.body.style.backgroundSize = '';
+            document.body.style.backgroundPosition = '';
+            document.body.style.backgroundAttachment = '';
+            document.body.style.backgroundRepeat = '';
+            showResult('manual-result', '✅ Background cleared!', 'success');
+        }
+
+        // Auto-run checks on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkBackend();
+                setTimeout(() => checkBranding(), 500);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

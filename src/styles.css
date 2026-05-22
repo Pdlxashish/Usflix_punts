@@ -1,0 +1,569 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+@import "lenis/dist/lenis.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.5rem;
+  /* Light — warm cream + romantic crimson */
+  --background: oklch(0.98 0.008 85);
+  --foreground: oklch(0.18 0.02 25);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 25);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 25);
+  --primary: oklch(0.52 0.24 22);
+  --primary-foreground: oklch(0.99 0.005 30);
+  --secondary: oklch(0.94 0.01 85);
+  --secondary-foreground: oklch(0.22 0.02 25);
+  --muted: oklch(0.94 0.008 85);
+  --muted-foreground: oklch(0.48 0.02 30);
+  --accent: oklch(0.55 0.18 30);
+  --accent-foreground: oklch(0.99 0.005 30);
+  --destructive: oklch(0.55 0.24 25);
+  --destructive-foreground: oklch(0.99 0.005 30);
+  --border: oklch(0.88 0.015 85);
+  --input: oklch(0.92 0.01 85);
+  --ring: oklch(0.52 0.24 22);
+
+  --gradient-hero: linear-gradient(180deg, transparent 0%, oklch(0.98 0.008 85 / 0.5) 50%, oklch(0.98 0.008 85) 100%);
+  --gradient-side: linear-gradient(90deg, oklch(0.98 0.008 85) 0%, oklch(0.98 0.008 85 / 0.7) 40%, transparent 100%);
+  --shadow-card: 0 20px 50px -10px oklch(0 0 0 / 0.12);
+  --shadow-glow: 0 0 40px oklch(0.52 0.24 22 / 0.25), 0 0 80px oklch(0.52 0.24 22 / 0.1);
+  color-scheme: light;
+}
+
+.dark {
+  /* Dark — cinematic noir + romantic crimson */
+  --background: oklch(0.11 0.012 20);
+  --foreground: oklch(0.97 0.01 30);
+  --card: oklch(0.16 0.015 20);
+  --card-foreground: oklch(0.97 0.01 30);
+  --popover: oklch(0.14 0.015 20);
+  --popover-foreground: oklch(0.97 0.01 30);
+  --primary: oklch(0.58 0.22 22);
+  --primary-foreground: oklch(0.98 0.005 30);
+  --secondary: oklch(0.22 0.02 20);
+  --secondary-foreground: oklch(0.97 0.01 30);
+  --muted: oklch(0.2 0.015 20);
+  --muted-foreground: oklch(0.62 0.02 30);
+  --accent: oklch(0.72 0.16 30);
+  --accent-foreground: oklch(0.12 0.012 20);
+  --destructive: oklch(0.6 0.24 25);
+  --destructive-foreground: oklch(0.98 0.005 30);
+  --border: oklch(0.24 0.02 20);
+  --input: oklch(0.20 0.018 20);
+  --ring: oklch(0.58 0.22 22);
+
+  --gradient-hero: linear-gradient(180deg, transparent 0%, oklch(0.11 0.012 20 / 0.5) 50%, oklch(0.11 0.012 20) 100%);
+  --gradient-side: linear-gradient(90deg, oklch(0.11 0.012 20) 0%, oklch(0.11 0.012 20 / 0.7) 40%, transparent 100%);
+  --shadow-card: 0 20px 50px -10px oklch(0 0 0 / 0.65);
+  --shadow-glow: 0 0 40px oklch(0.58 0.22 22 / 0.35), 0 0 80px oklch(0.58 0.22 22 / 0.15);
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    box-sizing: border-box;
+  }
+  html {
+    color-scheme: light dark;
+  }
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  /* Focus ring */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: oklch(0.58 0.22 22 / 0.35);
+    color: var(--foreground);
+  }
+
+  /* Mobile image rendering fixes */
+  img, video {
+    max-width: 100%;
+    height: auto;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  /* Ensure object-fit works on older mobile browsers */
+  img[style*="object-fit"], video[style*="object-fit"] {
+    font-family: 'object-fit: cover;';
+  }
+}
+
+@layer utilities {
+  /* Scrollbar */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { scrollbar-width: none; }
+
+  /* Horizontal carousels — native pan; Lenis allowNestedScroll handles wheel */
+  .scroll-row-x {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .scroll-row-x::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Custom thin scrollbar for non-hidden elements */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.3 0.02 20);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.4 0.04 22);
+  }
+
+  /* Text utilities */
+  .text-shadow-hero { text-shadow: 0 4px 30px oklch(0 0 0 / 0.85), 0 2px 8px oklch(0 0 0 / 0.5); }
+
+  /* Gradient utilities */
+  .gradient-hero { background-image: var(--gradient-hero); }
+  .gradient-side { background-image: var(--gradient-side); }
+
+  /* Page transition */
+  .page-enter {
+    animation: pageEnter 0.4s ease forwards;
+  }
+
+  @keyframes pageEnter {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Shimmer loading skeleton */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      oklch(0.18 0.015 20) 25%,
+      oklch(0.22 0.018 20) 50%,
+      oklch(0.18 0.015 20) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ── Req 11 AC5: disable decorative animations for prefers-reduced-motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    /* Ken Burns, page-enter, shimmer, bounce — all decorative */
+    .motion-safe\:animate-\[kenburns_24s_ease-in-out_infinite_alternate\],
+    .motion-safe\:animate-bounce,
+    .page-enter,
+    .skeleton {
+      animation: none !important;
+    }
+    /* Disable all transitions except focus rings and loading indicators */
+    *:not(.animate-spin):not([role="progressbar"]) {
+      transition-duration: 0ms !important;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Touch-friendly tap targets — only interactive controls, not decorative elements */
+button:not([aria-hidden]):not(.carousel-dot),
+a:not([aria-hidden]) {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* iOS safe area support */
+@supports (padding: max(0px)) {
+  .safe-area-top { padding-top: max(1rem, env(safe-area-inset-top)); }
+  .safe-area-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  .safe-area-left { padding-left: max(1rem, env(safe-area-inset-left)); }
+  .safe-area-right { padding-right: max(1rem, env(safe-area-inset-right)); }
+}
+
+/* Mobile utility classes */
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+  .mobile-px-4 { padding-left: 1rem !important; padding-right: 1rem !important; }
+}
+
+.show-mobile { display: none !important; }
+@media (max-width: 768px) {
+  .show-mobile { display: block !important; }
+  .show-mobile-flex { display: flex !important; }
+}
+
+/* Fix iOS input zoom */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Performance optimizations for mobile — only shorten UI micro-transitions,
+   never override long decorative animations like Ken Burns (24s) */
+@media (max-width: 768px) {
+  /* Shorten only short transitions that are likely UI feedback */
+  *:not(.animate-love-bomb-charge-pulse):not(.animate-love-bomb-swell):not(.love-bomb-shockwave):not(.love-bomb-fragment):not(.birthday-float):not(.birthday-confetti) {
+    transition-duration: min(var(--tw-transition-duration, 300ms), 200ms) !important;
+  }
+  /* Promote composited layers for smoother scrolling */
+  .scroll-row-x {
+    will-change: scroll-position;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VIDEO PLAYER RANGE INPUT STYLING
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Seek bar and volume slider styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+input[type="range"]::-webkit-slider-track {
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgb(229, 9, 20);
+  cursor: pointer;
+  margin-top: -5px;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.3);
+}
+
+/* Firefox */
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  background: rgb(229, 9, 20);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]:hover::-moz-range-thumb {
+  transform: scale(1.2);
+}
+
+input[type="range"]:active::-moz-range-thumb {
+  transform: scale(1.3);
+}
+
+/* Focus state for accessibility */
+input[type="range"]:focus-visible {
+  outline: 2px solid rgb(229, 9, 20);
+  outline-offset: 2px;
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(229, 9, 20, 0.3);
+}
+
+input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(229, 9, 20, 0.3);
+}
+
+/* ─── Extra Small Breakpoint (xs: 475px+) ──────────────────────────────────── */
+@media (min-width: 475px) {
+  .xs\:inline {
+    display: inline;
+  }
+  .xs\:flex-row {
+    flex-direction: row;
+  }
+  .xs\:w-16 {
+    width: 4rem;
+  }
+}
+
+/* ─── Mobile-Optimized Admin Panel ──────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Ensure inputs don't zoom on iOS */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  input[type="color"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+  
+  /* Touch targets — nav/controls only (not album cards) */
+  header button,
+  header a,
+  footer button,
+  footer a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Hero Banner Animations
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes kenburns {
+  from { transform: scale(1.05) translateY(0) translateX(0); }
+  to   { transform: scale(1.18) translateY(-2%) translateX(1%); }
+}
+
+@keyframes zoomIn {
+  from { transform: scale(1.05); }
+  to   { transform: scale(1.25); }
+}
+
+@keyframes zoomOut {
+  from { transform: scale(1.25); }
+  to   { transform: scale(1.05); }
+}
+
+@keyframes panLeft {
+  from { transform: scale(1.15) translateX(0); }
+  to   { transform: scale(1.15) translateX(-5%); }
+}
+
+@keyframes panRight {
+  from { transform: scale(1.15) translateX(0); }
+  to   { transform: scale(1.15) translateX(5%); }
+}
+
+@keyframes panUp {
+  from { transform: scale(1.15) translateY(0); }
+  to   { transform: scale(1.15) translateY(-5%); }
+}
+
+@keyframes panDown {
+  from { transform: scale(1.15) translateY(0); }
+  to   { transform: scale(1.15) translateY(5%); }
+}
+
+@keyframes rotate {
+  from { transform: scale(1.1) rotate(0deg); }
+  to   { transform: scale(1.1) rotate(2deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1.05); opacity: 1; }
+  50%      { transform: scale(1.15); opacity: 0.95; }
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.9; transform: scale(1.05); }
+  50%      { opacity: 1; transform: scale(1.12); }
+}
+
+@keyframes slideLeft {
+  from { transform: translateX(0) scale(1.1); }
+  to   { transform: translateX(-8%) scale(1.1); }
+}
+
+@keyframes slideRight {
+  from { transform: translateX(0) scale(1.1); }
+  to   { transform: translateX(8%) scale(1.1); }
+}
+
+/* Love bomb heart (Our Story Continues — 5 clicks) */
+@keyframes love-bomb-charge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes love-bomb-swell {
+  0% { transform: scale(1); opacity: 1; filter: brightness(1); }
+  45% { transform: scale(1.45); opacity: 1; filter: brightness(1.6) drop-shadow(0 0 28px oklch(0.58 0.22 22 / 0.9)); }
+  100% { transform: scale(0.2); opacity: 0; filter: blur(6px); }
+}
+
+@keyframes love-bomb-shockwave-ring {
+  0% { transform: scale(0.4); opacity: 0.85; }
+  100% { transform: scale(5); opacity: 0; }
+}
+
+@keyframes love-bomb-fragment-fly {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--fragment-angle)) translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(var(--fragment-angle)) translateY(-130px) scale(0.2);
+    opacity: 0;
+  }
+}
+
+.animate-love-bomb-charge-pulse {
+  animation: love-bomb-charge-pulse 0.55s ease-in-out infinite;
+}
+
+.animate-love-bomb-swell {
+  animation: love-bomb-swell 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.love-bomb-shockwave {
+  animation: love-bomb-shockwave-ring 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.love-bomb-fragment {
+  animation: love-bomb-fragment-fly 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Love Jar — shake and float-up keyframes */
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg) scale(1.05); }
+  15% { transform: rotate(-8deg) scale(1.08); }
+  30% { transform: rotate(8deg) scale(1.08); }
+  45% { transform: rotate(-6deg) scale(1.06); }
+  60% { transform: rotate(6deg) scale(1.06); }
+  75% { transform: rotate(-3deg) scale(1.04); }
+  90% { transform: rotate(3deg) scale(1.04); }
+}
+
+@keyframes float-up {
+  0%   { transform: translateY(0) scale(1); opacity: 0.9; }
+  100% { transform: translateY(-80px) scale(0.5); opacity: 0; }
+}
+
+/* Birthday section */
+@keyframes birthday-float-up {
+  0% {
+    transform: translateY(110%) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.5;
+  }
+  88% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateY(-120%) rotate(12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes birthday-confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@keyframes birthday-digit-pop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.birthday-float {
+  bottom: -2rem;
+  animation: birthday-float-up linear infinite;
+}
+
+.birthday-confetti {
+  animation: birthday-confetti-fall 4s ease-in forwards;
+}
