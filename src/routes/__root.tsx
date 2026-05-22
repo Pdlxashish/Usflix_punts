@@ -21,6 +21,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { ThemeProvider } from "@/components/ui/ThemeToggle";
 import { useEffect, useRef } from "react";
 import { applyObjectFitPolyfill } from "@/utils/imageOptimization";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
 import appCss from "../styles.css?url";
 
@@ -188,6 +189,7 @@ function RootComponent() {
                     <BrandingProvider>
                       <BrandingStyles />
                       <AppLayout />
+                      <InstallPrompt />
                     </BrandingProvider>
                   </ContentProvider>
                 </HeartRainfallProvider>
