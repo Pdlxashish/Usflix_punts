@@ -2,7 +2,18 @@
  * Account — active viewer profiles and activity audit log.
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Users, Activity, RefreshCw, Monitor, Globe, Clock, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import React from "react";
+import {
+  Users,
+  Activity,
+  RefreshCw,
+  Monitor,
+  Globe,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { AdminSectionCard } from "@/components/admin/AdminSubNavLayout";
 
@@ -76,7 +87,8 @@ function describeDetails(action: string, details: Record<string, unknown>): stri
   }
   if (details.username) parts.push(`User: ${details.username}`);
   if (details.videoTime != null) parts.push(`At ${Number(details.videoTime).toFixed(1)}s`);
-  if (parts.length === 0 && action === "profile_selected") return "Opened the site with this profile";
+  if (parts.length === 0 && action === "profile_selected")
+    return "Opened the site with this profile";
   return parts.join(" · ") || "—";
 }
 
@@ -126,7 +138,9 @@ export function ProfileActivitySection() {
   }, [load]);
 
   // Reset page when filter changes
-  useEffect(() => { setPage(0); }, [filterAction]);
+  useEffect(() => {
+    setPage(0);
+  }, [filterAction]);
 
   const filteredActivity = useMemo(() => {
     if (filterAction === "all") return activity;
@@ -170,7 +184,8 @@ export function ProfileActivitySection() {
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : sessions.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No active profiles right now. Someone must pick a profile on the &quot;Who&apos;s watching?&quot; screen.
+            No active profiles right now. Someone must pick a profile on the &quot;Who&apos;s
+            watching?&quot; screen.
           </p>
         ) : (
           <ul className="space-y-3">
@@ -234,7 +249,9 @@ export function ProfileActivitySection() {
               >
                 <option value="all">All actions</option>
                 {actionTypes.map((a) => (
-                  <option key={a} value={a}>{ACTION_LABELS[a] ?? a}</option>
+                  <option key={a} value={a}>
+                    {ACTION_LABELS[a] ?? a}
+                  </option>
                 ))}
               </select>
             </div>
@@ -249,7 +266,8 @@ export function ProfileActivitySection() {
           <p className="text-sm text-muted-foreground">Loading activity…</p>
         ) : activity.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No activity recorded yet. Actions appear when profiles watch media, comment, or use My List.
+            No activity recorded yet. Actions appear when profiles watch media, comment, or use My
+            List.
           </p>
         ) : filteredActivity.length === 0 ? (
           <p className="text-sm text-muted-foreground">No entries match the selected filter.</p>
@@ -270,20 +288,25 @@ export function ProfileActivitySection() {
                   {pageEntries.map((entry) => {
                     const who = entry.adminUsername
                       ? `Admin (${entry.adminUsername})`
-                      : entry.profileName ?? entry.profileId ?? "Unknown";
+                      : (entry.profileName ?? entry.profileId ?? "Unknown");
                     const isExpanded = expandedRow === entry.id;
-                    const deviceInfo = [shortUserAgent(entry.userAgent), entry.ip].filter(Boolean).join(" · ");
+                    const deviceInfo = [shortUserAgent(entry.userAgent), entry.ip]
+                      .filter(Boolean)
+                      .join(" · ");
                     return (
-                      <>
+                      <React.Fragment key={entry.id}>
                         <tr
-                          key={entry.id}
                           onClick={() => setExpandedRow(isExpanded ? null : entry.id)}
                           className="border-b border-border/20 hover:bg-card/40 cursor-pointer transition-colors"
                         >
                           <td className="py-2.5 px-3 whitespace-nowrap text-xs text-muted-foreground">
-                            <span title={formatDateTime(entry.createdAt)}>{formatRelative(entry.createdAt)}</span>
+                            <span title={formatDateTime(entry.createdAt)}>
+                              {formatRelative(entry.createdAt)}
+                            </span>
                           </td>
-                          <td className="py-2.5 px-3 text-xs font-medium truncate max-w-[120px]">{who}</td>
+                          <td className="py-2.5 px-3 text-xs font-medium truncate max-w-[120px]">
+                            {who}
+                          </td>
                           <td className="py-2.5 px-3">
                             <span className="inline-flex items-center gap-1 text-xs">
                               <Activity className="h-3 w-3 text-primary shrink-0" />
@@ -295,7 +318,10 @@ export function ProfileActivitySection() {
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr key={`${entry.id}-expanded`} className="bg-card/60 border-b border-border/20">
+                          <tr
+                            key={`${entry.id}-expanded`}
+                            className="bg-card/60 border-b border-border/20"
+                          >
                             <td colSpan={4} className="px-3 py-2.5">
                               <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
@@ -315,7 +341,7 @@ export function ProfileActivitySection() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

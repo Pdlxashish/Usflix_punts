@@ -4,7 +4,7 @@ import { Hero } from "@/components/site/Hero";
 import { TimeTogether } from "@/components/site/TimeTogether";
 import { AnniversaryCountdown } from "@/components/site/AnniversaryCountdown";
 import { OnThisDay } from "@/components/site/OnThisDay";
-import { DistanceBetween } from "@/components/site/DistanceBetween";
+import { DistanceBetweenLoader as DistanceBetween } from "@/components/site/DistanceBetweenLoader";
 import { BirthdayCelebration } from "@/components/site/BirthdayCelebration";
 import { StoryContinues } from "@/components/site/StoryContinues";
 import { LoveLetterWall } from "@/components/site/LoveLetterWall";
@@ -72,7 +72,7 @@ function Index() {
         setApiError(
           error instanceof Error
             ? error.message
-            : "Cannot connect to the backend. Your memories are still saved in the database — start the API server."
+            : "Cannot connect to the backend. Your memories are still saved in the database — start the API server.",
         );
       } finally {
         setLoading(false);
@@ -111,12 +111,12 @@ function Index() {
   // Voice notes — shown in their own section
   const voiceNotes = useMemo(
     () => mediaItems.filter((m) => m.type === "voice" && m.status === "ready"),
-    [mediaItems]
+    [mediaItems],
   );
 
   const myListItems = useMemo(
     () => myList.map((id) => mediaItems.find((m) => m.id === id)).filter(Boolean) as MediaItem[],
-    [myList, mediaItems]
+    [myList, mediaItems],
   );
 
   const handlePlay = (item: MediaItem) => {
@@ -216,11 +216,15 @@ function Index() {
               <p className="text-sm text-muted-foreground mb-4">{apiError}</p>
               <p className="text-xs text-muted-foreground mb-6">
                 Your uploads are usually still in PostgreSQL. Run{" "}
-                <code className="text-foreground">npm run dev:api</code> in the backend folder, then refresh.
+                <code className="text-foreground">npm run dev:api</code> in the backend folder, then
+                refresh.
               </p>
               <button
                 type="button"
-                onClick={() => { setLoading(true); window.location.reload(); }}
+                onClick={() => {
+                  setLoading(true);
+                  window.location.reload();
+                }}
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium"
               >
                 Retry
@@ -254,18 +258,42 @@ function Index() {
       <TimeGreeting />
       <TimeTogether />
       <AnniversaryCountdown />
-      <div id="mood-of-day"><MoodOfTheDay /></div>
-      <div id="weather"><WeatherWidget /></div>
-      <div id="first-times"><OurFirstTimes /></div>
-      <div id="love-letters"><LoveLetterWall /></div>
-      <div id="love-jar"><LoveJar /></div>
-      <div id="mood-board"><MoodBoard /></div>
-      <div id="playlist"><OurPlaylist /></div>
-      <div id="canvas"><SharedCanvas /></div>
-      <div id="bucket-list"><OurBucketList /></div>
-      <div id="quiz"><RelationshipQuiz /></div>
-      <div id="random-memory"><RandomMemory mediaItems={mediaItems} onPlay={handlePlay} /></div>
-      <div id="distance"><DistanceBetween /></div>
+      <div id="mood-of-day">
+        <MoodOfTheDay />
+      </div>
+      <div id="weather">
+        <WeatherWidget />
+      </div>
+      <div id="first-times">
+        <OurFirstTimes />
+      </div>
+      <div id="love-letters">
+        <LoveLetterWall />
+      </div>
+      <div id="love-jar">
+        <LoveJar />
+      </div>
+      <div id="mood-board">
+        <MoodBoard />
+      </div>
+      <div id="playlist">
+        <OurPlaylist />
+      </div>
+      <div id="canvas">
+        <SharedCanvas />
+      </div>
+      <div id="bucket-list">
+        <OurBucketList />
+      </div>
+      <div id="quiz">
+        <RelationshipQuiz />
+      </div>
+      <div id="random-memory">
+        <RandomMemory mediaItems={mediaItems} onPlay={handlePlay} />
+      </div>
+      <div id="distance">
+        <DistanceBetween />
+      </div>
       <BirthdayCelebration />
       <StoryContinues />
 

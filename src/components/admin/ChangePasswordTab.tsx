@@ -117,7 +117,10 @@ export function ChangePasswordTab() {
             id="current-password"
             label="Current password"
             value={currentPassword}
-            onChange={(v) => { setCurrentPassword(v); setError(null); }}
+            onChange={(v) => {
+              setCurrentPassword(v);
+              setError(null);
+            }}
             show={showCurrent}
             onToggleShow={() => setShowCurrent((s) => !s)}
             autoComplete="current-password"
@@ -127,7 +130,10 @@ export function ChangePasswordTab() {
             id="new-password"
             label="New password"
             value={newPassword}
-            onChange={(v) => { setNewPassword(v); setError(null); }}
+            onChange={(v) => {
+              setNewPassword(v);
+              setError(null);
+            }}
             show={showNew}
             onToggleShow={() => setShowNew((s) => !s)}
             autoComplete="new-password"
@@ -138,7 +144,10 @@ export function ChangePasswordTab() {
             id="confirm-password"
             label="Confirm new password"
             value={confirmPassword}
-            onChange={(v) => { setConfirmPassword(v); setError(null); }}
+            onChange={(v) => {
+              setConfirmPassword(v);
+              setError(null);
+            }}
             show={showConfirm}
             onToggleShow={() => setShowConfirm((s) => !s)}
             autoComplete="new-password"
@@ -146,7 +155,8 @@ export function ChangePasswordTab() {
 
           {newPassword.length > 0 && !newPasswordValid && (
             <p className="text-xs text-muted-foreground">
-              {MIN_PASSWORD_LENGTH - newPassword.length} more character{MIN_PASSWORD_LENGTH - newPassword.length === 1 ? "" : "s"} needed
+              {MIN_PASSWORD_LENGTH - newPassword.length} more character
+              {MIN_PASSWORD_LENGTH - newPassword.length === 1 ? "" : "s"} needed
             </p>
           )}
           {confirmPassword.length > 0 && newPassword.length > 0 && !passwordsMatch && (

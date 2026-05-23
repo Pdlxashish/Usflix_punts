@@ -5,6 +5,7 @@
 import bcrypt from "bcryptjs";
 import pool from "./connection.js";
 import { createTables } from "./schema.js";
+import { getMinAdminPasswordLength, shouldSeedDemoData } from "../config/env.js";
 
 // ─── Sample video URLs (public domain) ───────────────────────────────────────
 const SAMPLE_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
@@ -25,8 +26,9 @@ async function seedAdminUsers(): Promise<void> {
     return;
   }
 
-  if (password.length < 6) {
-    console.warn("  ⚠️  ADMIN_PASSWORD must be at least 6 characters. Admin user not seeded.");
+  const minLen = getMinAdminPasswordLength();
+  if (password.length < minLen) {
+    console.warn(`  ⚠️  ADMIN_PASSWORD must be at least ${minLen} characters. Admin user not seeded.`);
     return;
   }
 
@@ -240,6 +242,11 @@ async function seedHeroBanners(): Promise<void> {
 export async function seedDatabase(): Promise<void> {
   console.log("🌱 Seeding database...");
   await seedAdminUsers();
+  if (!shouldSeedDemoData()) {
+    console.log("  → Skipping demo content (production). Set SEED_DEMO_DATA=true to include samples.");
+    console.log("🌱 Seeding complete!");
+    return;
+  }
   await seedCollections();
   await seedMediaItems();
   await seedBranding();

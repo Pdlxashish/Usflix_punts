@@ -15,7 +15,12 @@ interface WeatherLocation {
   isPrimary: boolean;
 }
 
-const BLANK = {
+const BLANK: {
+  profileId: string | null;
+  locationName: string;
+  latitude: number;
+  longitude: number;
+} = {
   profileId: null,
   locationName: "",
   latitude: 0,
@@ -24,7 +29,7 @@ const BLANK = {
 
 // Popular cities for quick add
 const POPULAR_CITIES = [
-  { name: "New York, NY", lat: 40.7128, lon: -74.0060 },
+  { name: "New York, NY", lat: 40.7128, lon: -74.006 },
   { name: "Los Angeles, CA", lat: 34.0522, lon: -118.2437 },
   { name: "Chicago, IL", lat: 41.8781, lon: -87.6298 },
   { name: "Houston, TX", lat: 29.7604, lon: -95.3698 },
@@ -127,7 +132,7 @@ export function WeatherAdmin() {
     }
   };
 
-  const useCity = (city: typeof POPULAR_CITIES[0]) => {
+  const useCity = (city: (typeof POPULAR_CITIES)[0]) => {
     setForm({
       ...form,
       locationName: city.name,
@@ -144,8 +149,23 @@ export function WeatherAdmin() {
           <strong>Weather API Setup:</strong>
         </p>
         <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-          <li>Get free API key from <a href="https://openweathermap.org/api" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">OpenWeatherMap</a></li>
-          <li>Add to <code className="text-xs bg-muted px-1 py-0.5 rounded">backend/.env</code>: <code className="text-xs bg-muted px-1 py-0.5 rounded">OPENWEATHER_API_KEY=your_key</code></li>
+          <li>
+            Get free API key from{" "}
+            <a
+              href="https://openweathermap.org/api"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              OpenWeatherMap
+            </a>
+          </li>
+          <li>
+            Add to <code className="text-xs bg-muted px-1 py-0.5 rounded">backend/.env</code>:{" "}
+            <code className="text-xs bg-muted px-1 py-0.5 rounded">
+              OPENWEATHER_API_KEY=your_key
+            </code>
+          </li>
           <li>Restart backend server</li>
           <li>Without API key, demo data will be shown</li>
         </ol>
@@ -166,9 +186,7 @@ export function WeatherAdmin() {
         <div className="space-y-3">
           {/* Location name */}
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              Location Name *
-            </label>
+            <label className="text-xs text-muted-foreground mb-1 block">Location Name *</label>
             <input
               value={form.locationName}
               onChange={(e) => setForm((f) => ({ ...f, locationName: e.target.value }))}
@@ -180,27 +198,27 @@ export function WeatherAdmin() {
           {/* Coordinates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Latitude *
-              </label>
+              <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
               <input
                 type="number"
                 step="0.0001"
                 value={form.latitude}
-                onChange={(e) => setForm((f) => ({ ...f, latitude: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, latitude: parseFloat(e.target.value) || 0 }))
+                }
                 placeholder="40.7128"
                 className="w-full bg-input border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Longitude *
-              </label>
+              <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
               <input
                 type="number"
                 step="0.0001"
                 value={form.longitude}
-                onChange={(e) => setForm((f) => ({ ...f, longitude: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, longitude: parseFloat(e.target.value) || 0 }))
+                }
                 placeholder="-74.0060"
                 className="w-full bg-input border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
@@ -231,7 +249,17 @@ export function WeatherAdmin() {
             disabled={saving}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : editingId ? <><Check className="h-4 w-4" /> Save</> : <><Plus className="h-4 w-4" /> Add</>}
+            {saving ? (
+              "Saving..."
+            ) : editingId ? (
+              <>
+                <Check className="h-4 w-4" /> Save
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Add
+              </>
+            )}
           </button>
           {editingId && (
             <button

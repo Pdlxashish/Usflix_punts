@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import type { Album } from "@/data/albums";
-import { getMediaUrl } from "@/config/api";
+import { getMediaUrl } from "@/lib/api";
 
 export function AlbumRow({ title, items }: { title: string; items: Album[] }) {
   const ref = useRef<HTMLDivElement>(null);

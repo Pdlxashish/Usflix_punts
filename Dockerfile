@@ -10,8 +10,9 @@ RUN npm ci
 # Copy source and build
 COPY . .
 
-# VITE_API_URL must be passed at build time via --build-arg
-ARG VITE_API_URL=http://localhost:3001
+# Leave empty when nginx proxies /api to the backend (same-origin cookies).
+# Set to https://api.your-domain.com only for split-domain deployments.
+ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
@@ -19,8 +20,8 @@ RUN npm run build
 # ── Stage 2: Serve ────────────────────────────────────────────────────────────
 FROM nginx:alpine
 
-# Copy built assets
-COPY --from=builder /app/dist /usr/share/nginx/html
+# TanStack Start client assets (static shell for nginx; SSR uses Cloudflare Workers)
+COPY --from=builder /app/dist/client /usr/share/nginx/html
 
 # Nginx config: serve SPA, proxy /api and /uploads to backend
 COPY nginx.conf /etc/nginx/conf.d/default.conf

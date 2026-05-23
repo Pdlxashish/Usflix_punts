@@ -2,7 +2,18 @@
  * Admin panel — manage time-based greetings
  */
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, X, AlertCircle, Check, Sun, Cloud, Sunset, Moon } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  AlertCircle,
+  Check,
+  Sun,
+  Cloud,
+  Sunset,
+  Moon,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 
@@ -166,12 +177,12 @@ export function GreetingsAdmin() {
                     setSelectedTime(time.value);
                   }}
                   className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${
-                    isSelected
-                      ? "bg-primary/10 border-primary/40"
-                      : "border-border hover:bg-card"
+                    isSelected ? "bg-primary/10 border-primary/40" : "border-border hover:bg-card"
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${isSelected ? time.color : "text-muted-foreground"}`} />
+                  <Icon
+                    className={`h-5 w-5 ${isSelected ? time.color : "text-muted-foreground"}`}
+                  />
                   <span className="text-xs font-medium capitalize">{time.value}</span>
                 </button>
               );
@@ -195,15 +206,17 @@ export function GreetingsAdmin() {
         <div className="mb-4">
           <p className="text-xs text-muted-foreground mb-2">Quick suggestions:</p>
           <div className="flex flex-wrap gap-2">
-            {GREETING_SUGGESTIONS[selectedTime as keyof typeof GREETING_SUGGESTIONS].map((msg, i) => (
-              <button
-                key={i}
-                onClick={() => useSuggestion(msg)}
-                className="text-xs px-3 py-1.5 rounded-md bg-input hover:bg-card border border-border transition-colors"
-              >
-                {msg}
-              </button>
-            ))}
+            {GREETING_SUGGESTIONS[selectedTime as keyof typeof GREETING_SUGGESTIONS].map(
+              (msg, i) => (
+                <button
+                  key={i}
+                  onClick={() => useSuggestion(msg)}
+                  className="text-xs px-3 py-1.5 rounded-md bg-input hover:bg-card border border-border transition-colors"
+                >
+                  {msg}
+                </button>
+              ),
+            )}
           </div>
         </div>
 
@@ -225,7 +238,17 @@ export function GreetingsAdmin() {
             disabled={saving}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : editingId ? <><Check className="h-4 w-4" /> Save</> : <><Plus className="h-4 w-4" /> Add</>}
+            {saving ? (
+              "Saving..."
+            ) : editingId ? (
+              <>
+                <Check className="h-4 w-4" /> Save
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Add
+              </>
+            )}
           </button>
           {editingId && (
             <button

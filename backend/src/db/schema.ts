@@ -413,6 +413,26 @@ export async function createTables(): Promise<void> {
       );
     `);
 
+    // One weather location per profile (removes duplicates from concurrent auto-location)
+    await client.query(`
+      DELETE FROM weather_locations w1
+      WHERE w1.profile_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM weather_locations w2
+          WHERE w2.profile_id = w1.profile_id
+            AND (
+              w2.is_primary AND NOT w1.is_primary
+              OR (w2.is_primary = w1.is_primary AND w2.created_at > w1.created_at)
+              OR (w2.is_primary = w1.is_primary AND w2.created_at = w1.created_at AND w2.id > w1.id)
+            )
+        );
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS weather_locations_profile_id_unique
+      ON weather_locations (profile_id)
+      WHERE profile_id IS NOT NULL;
+    `);
+
     // ── Shared Canvas / Drawing Board ──────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS canvas_drawings (

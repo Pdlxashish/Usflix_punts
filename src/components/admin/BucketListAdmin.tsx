@@ -40,7 +40,9 @@ export function BucketListAdmin() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const startEdit = (i: BucketListItem) => {
     setEditingId(i.id);
@@ -55,7 +57,10 @@ export function BucketListAdmin() {
   };
 
   const save = async () => {
-    if (!form.item.trim()) { setError("Item is required."); return; }
+    if (!form.item.trim()) {
+      setError("Item is required.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -105,9 +110,7 @@ export function BucketListAdmin() {
       <div className="bg-card/50 border border-border/60 rounded-xl p-5">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="h-5 w-5 text-primary" />
-          <h3 className="font-medium text-sm">
-            {editingId ? "Edit Item" : "Add New Item"}
-          </h3>
+          <h3 className="font-medium text-sm">{editingId ? "Edit Item" : "Add New Item"}</h3>
         </div>
 
         {error && (
@@ -145,7 +148,9 @@ export function BucketListAdmin() {
               key={e}
               onClick={() => setForm((f) => ({ ...f, emoji: e }))}
               className={`text-lg w-8 h-8 rounded-md flex items-center justify-center transition-colors ${
-                form.emoji === e ? "bg-primary/20 border border-primary/40" : "hover:bg-card border border-transparent"
+                form.emoji === e
+                  ? "bg-primary/20 border border-primary/40"
+                  : "hover:bg-card border border-transparent"
               }`}
             >
               {e}
@@ -159,7 +164,17 @@ export function BucketListAdmin() {
             disabled={saving}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : editingId ? <><Check className="h-4 w-4" /> Save</> : <><Plus className="h-4 w-4" /> Add</>}
+            {saving ? (
+              "Saving..."
+            ) : editingId ? (
+              <>
+                <Check className="h-4 w-4" /> Save
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Add
+              </>
+            )}
           </button>
           {editingId && (
             <button
@@ -175,7 +190,8 @@ export function BucketListAdmin() {
       {/* List */}
       <div className="bg-card/50 border border-border/60 rounded-xl p-5">
         <p className="text-sm text-muted-foreground mb-4">
-          {items.length} item{items.length !== 1 ? "s" : ""} ({memories.length} completed, {dreams.length} remaining)
+          {items.length} item{items.length !== 1 ? "s" : ""} ({memories.length} completed,{" "}
+          {dreams.length} remaining)
         </p>
 
         {loading ? (
@@ -216,8 +232,18 @@ export function BucketListAdmin() {
                       </button>
                       {deleteTarget === i.id ? (
                         <div className="flex gap-1 shrink-0">
-                          <button onClick={() => remove(i.id)} className="text-xs text-destructive font-medium">Yes</button>
-                          <button onClick={() => setDeleteTarget(null)} className="text-xs text-muted-foreground">No</button>
+                          <button
+                            onClick={() => remove(i.id)}
+                            className="text-xs text-destructive font-medium"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(null)}
+                            className="text-xs text-muted-foreground"
+                          >
+                            No
+                          </button>
                         </div>
                       ) : (
                         <button
@@ -254,7 +280,9 @@ export function BucketListAdmin() {
                         <Check className="h-3.5 w-3.5 text-white" />
                       </button>
                       <span className="text-base shrink-0 opacity-60">{i.emoji}</span>
-                      <p className="flex-1 text-sm truncate min-w-0 line-through opacity-60">{i.item}</p>
+                      <p className="flex-1 text-sm truncate min-w-0 line-through opacity-60">
+                        {i.item}
+                      </p>
                       <button
                         onClick={() => startEdit(i)}
                         className="text-muted-foreground hover:text-primary transition-colors shrink-0"
@@ -264,8 +292,18 @@ export function BucketListAdmin() {
                       </button>
                       {deleteTarget === i.id ? (
                         <div className="flex gap-1 shrink-0">
-                          <button onClick={() => remove(i.id)} className="text-xs text-destructive font-medium">Yes</button>
-                          <button onClick={() => setDeleteTarget(null)} className="text-xs text-muted-foreground">No</button>
+                          <button
+                            onClick={() => remove(i.id)}
+                            className="text-xs text-destructive font-medium"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(null)}
+                            className="text-xs text-muted-foreground"
+                          >
+                            No
+                          </button>
                         </div>
                       ) : (
                         <button

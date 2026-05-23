@@ -2,19 +2,32 @@
  * USFLIX Backend — Express.js API Server
  * Provides REST API for auth, content management, branding, profiles, and file uploads.
  */
+
+// Load env vars FIRST — before any other imports that read process.env at module load time
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import cors from "cors";
 import compression from "compression";
 import path from "path";
 import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser";
-import dotenv from "dotenv";
 
-import { testConnection } from "./db/connection.js";
+import pool, { testConnection } from "./db/connection.js";
 import { createTables } from "./db/schema.js";
 import { seedDatabase } from "./db/seed.js";
 
-import { securityHeaders, requestLogger, errorHandler, apiLimiter, authLimiter, uploadLimiter } from "./middleware/security.js";
+import {
+  securityHeaders,
+  requestLogger,
+  productionRequestLogger,
+  errorHandler,
+  apiLimiter,
+  authLimiter,
+  uploadLimiter,
+  publicWriteLimiter,
+} from "./middleware/security.js";
 
 import authRoutes from "./routes/auth.js";
 import contentRoutes from "./routes/content.js";
@@ -37,18 +50,17 @@ import greetingsRoutes from "./routes/greetings.js";
 import weatherRoutes from "./routes/weather.js";
 import canvasRoutes from "./routes/canvas.js";
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 import { isRateLimitDisabled, validateJwtSecret } from "./config/auth.js";
+import { getAllowedFrontendOrigins, validateProductionEnv } from "./config/env.js";
 
 validateJwtSecret();
+validateProductionEnv();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001");
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 // Trust reverse proxy in production (correct client IP for rate limiting)
@@ -64,6 +76,8 @@ app.use(securityHeaders);
 // Request logging
 if (NODE_ENV === "development") {
   app.use(requestLogger);
+} else {
+  app.use(productionRequestLogger);
 }
 
 // Compression
@@ -72,39 +86,38 @@ app.use(compression());
 // CORS — localhost + LAN over http/https (HTTPS required for phone GPS/map)
 // Also allows Capacitor native app origins (capacitor://localhost, ionic://localhost)
 const allowedOrigins = new Set([
-  FRONTEND_URL,
+  ...getAllowedFrontendOrigins(),
   "http://localhost:8080",
   "https://localhost:8080",
   "http://127.0.0.1:8080",
   "https://127.0.0.1:8080",
   "http://localhost:5173",
   "https://localhost:5173",
-  // Capacitor iOS native WebView origin
   "capacitor://localhost",
-  // Capacitor Android native WebView origin
   "http://localhost",
   "https://localhost",
-  // Ionic/Capacitor alternative
   "ionic://localhost",
 ]);
 
 const devOriginRe =
   /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
 
-    if (allowedOrigins.has(origin)) {
-      callback(null, true);
-    } else if (NODE_ENV === "development" && devOriginRe.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-}));
+      if (allowedOrigins.has(origin)) {
+        callback(null, true);
+      } else if (NODE_ENV === "development" && devOriginRe.test(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  }),
+);
 
 // Body parsing
 app.use(express.json({ limit: "10mb" }));
@@ -131,13 +144,13 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/upload", uploadLimiter, uploadRoutes);
 
 // Other routes
-app.use("/api", contentRoutes);         // /api/collections, /api/media
+app.use("/api", contentRoutes); // /api/collections, /api/media
 app.use("/api/branding", brandingRoutes);
-app.use("/api/profiles", profilesRoutes);
-app.use("/api/comments", commentsRoutes);
+app.use("/api/profiles", publicWriteLimiter, profilesRoutes);
+app.use("/api/comments", publicWriteLimiter, commentsRoutes);
 app.use("/api/banners", bannersRoutes);
-app.use("/api/activity", activityRoutes);
-app.use("/api/location", locationRoutes);
+app.use("/api/activity", publicWriteLimiter, activityRoutes);
+app.use("/api/location", publicWriteLimiter, locationRoutes);
 app.use("/api/love-letters", loveLettersRoutes);
 app.use("/api/love-jar", loveJarRoutes);
 app.use("/api/mood-board", moodBoardRoutes);
@@ -150,9 +163,14 @@ app.use("/api/greetings", greetingsRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/canvas", canvasRoutes);
 
-// Health check (no rate limiting)
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, timestamp: new Date().toISOString(), env: NODE_ENV });
+// Health check (no rate limiting) — includes DB connectivity
+app.get("/api/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ ok: true, timestamp: new Date().toISOString() });
+  } catch {
+    res.status(503).json({ ok: false, error: "Database unavailable" });
+  }
 });
 
 // ─── Error Handler ────────────────────────────────────────────────────────────
@@ -174,7 +192,7 @@ async function start() {
     app.listen(PORT, () => {
       console.log(`\n🚀 USFLIX Backend running on http://localhost:${PORT}`);
       console.log(`📡 API available at http://localhost:${PORT}/api`);
-      console.log(`🌐 CORS allowing: ${FRONTEND_URL}\n`);
+      console.log(`🌐 CORS allowing: ${[...allowedOrigins].join(", ")}\n`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);

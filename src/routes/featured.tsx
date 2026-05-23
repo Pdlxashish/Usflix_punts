@@ -1,8 +1,31 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Play, ArrowRight, Film, ZoomIn } from "lucide-react";
 import { type MediaItem } from "@/data/media";
 import { getMediaUrl } from "@/lib/api";
+
+function FeaturedItemLink({
+  item,
+  className,
+  children,
+}: {
+  item: MediaItem;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (item.type === "video") {
+    return (
+      <Link to="/watch/$mediaId" params={{ mediaId: item.id }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <Link to="/albums/$albumId" params={{ albumId: item.id }} className={className}>
+      {children}
+    </Link>
+  );
+}
 
 export const Route = createFileRoute("/featured")({
   component: Featured,
@@ -25,7 +48,7 @@ function Featured() {
         if (res.ok) {
           const data: MediaItem[] = await res.json();
           // Filter only featured items
-          const featuredItems = data.filter(item => item.featured && item.status === "ready");
+          const featuredItems = data.filter((item) => item.featured && item.status === "ready");
           setFeatured(featuredItems);
         }
       } catch (error) {
@@ -43,10 +66,12 @@ function Featured() {
         <div className="px-6 lg:px-12 max-w-[1400px] mx-auto mb-16">
           <p className="text-xs uppercase tracking-[0.4em] text-primary mb-3">Curated for you</p>
           <h1 className="font-display text-5xl md:text-6xl mb-3">Featured Memories</h1>
-          <p className="text-muted-foreground text-lg max-w-xl">The moments worth replaying, again and again.</p>
+          <p className="text-muted-foreground text-lg max-w-xl">
+            The moments worth replaying, again and again.
+          </p>
         </div>
         <div className="space-y-0">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="max-w-[1400px] mx-auto px-6 lg:px-12 py-16">
               <div className="h-64 bg-muted animate-pulse rounded-xl" />
             </div>
@@ -84,7 +109,9 @@ function Featured() {
       <div className="px-6 lg:px-12 max-w-[1400px] mx-auto mb-16">
         <p className="text-xs uppercase tracking-[0.4em] text-primary mb-3">Curated for you</p>
         <h1 className="font-display text-5xl md:text-6xl mb-3">Featured Memories</h1>
-        <p className="text-muted-foreground text-lg max-w-xl">The moments worth replaying, again and again.</p>
+        <p className="text-muted-foreground text-lg max-w-xl">
+          The moments worth replaying, again and again.
+        </p>
       </div>
 
       {/* Featured items */}
@@ -94,14 +121,14 @@ function Featured() {
             key={item.id}
             className={`relative group overflow-hidden ${i % 2 === 0 ? "" : "bg-card/20"}`}
           >
-            <div className={`max-w-[1400px] mx-auto px-6 lg:px-12 py-16 md:py-20 grid md:grid-cols-2 gap-10 lg:gap-16 items-center ${i % 2 ? "md:grid-flow-dense" : ""}`}>
+            <div
+              className={`max-w-[1400px] mx-auto px-6 lg:px-12 py-16 md:py-20 grid md:grid-cols-2 gap-10 lg:gap-16 items-center ${i % 2 ? "md:grid-flow-dense" : ""}`}
+            >
               {/* Image */}
-              <div className={`overflow-hidden rounded-xl shadow-[var(--shadow-card)] ${i % 2 ? "md:col-start-2" : ""}`}>
-                <Link 
-                  to={item.type === "video" ? "/watch/$mediaId" : "/albums/$albumId"} 
-                  params={{ [item.type === "video" ? "mediaId" : "albumId"]: item.id }} 
-                  className="block relative group/img"
-                >
+              <div
+                className={`overflow-hidden rounded-xl shadow-[var(--shadow-card)] ${i % 2 ? "md:col-start-2" : ""}`}
+              >
+                <FeaturedItemLink item={item} className="block relative group/img">
                   {item.thumbnail ? (
                     <img
                       src={getMediaUrl(item.thumbnail)}
@@ -124,7 +151,7 @@ function Featured() {
                       )}
                     </div>
                   </div>
-                </Link>
+                </FeaturedItemLink>
               </div>
 
               {/* Text */}
@@ -134,19 +161,18 @@ function Featured() {
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.4em] text-primary">{item.category}</p>
+                    <p className="text-xs uppercase tracking-[0.4em] text-primary">
+                      {item.category}
+                    </p>
                     <p className="text-xs text-muted-foreground">{item.year}</p>
                   </div>
                 </div>
 
-                <Link 
-                  to={item.type === "video" ? "/watch/$mediaId" : "/albums/$albumId"} 
-                  params={{ [item.type === "video" ? "mediaId" : "albumId"]: item.id }}
-                >
+                <FeaturedItemLink item={item}>
                   <h2 className="font-display text-4xl md:text-5xl mb-4 hover:text-primary transition-colors duration-300 leading-tight">
                     {item.title}
                   </h2>
-                </Link>
+                </FeaturedItemLink>
 
                 <p className="font-display italic text-xl text-foreground/80 mb-4 leading-snug">
                   "{item.tagline}"
@@ -154,9 +180,8 @@ function Featured() {
                 <p className="text-muted-foreground leading-relaxed mb-8">{item.description}</p>
 
                 <div className="flex flex-wrap gap-3">
-                  <Link
-                    to={item.type === "video" ? "/watch/$mediaId" : "/albums/$albumId"} 
-                    params={{ [item.type === "video" ? "mediaId" : "albumId"]: item.id }}
+                  <FeaturedItemLink
+                    item={item}
                     className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-md font-medium hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[var(--shadow-glow)]"
                   >
                     {item.type === "video" ? (
@@ -168,12 +193,11 @@ function Featured() {
                         <ZoomIn className="h-4 w-4" /> View Album
                       </>
                     )}
-                  </Link>
+                  </FeaturedItemLink>
                   <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground border border-border/50 px-4 py-3 rounded-md">
-                    {item.type === "video" 
-                      ? `${Math.floor((item.duration || 0) / 60)}:${String(Math.floor((item.duration || 0) % 60)).padStart(2, '0')}`
-                      : `${item.photos?.length || 0} photos`
-                    }
+                    {item.type === "video"
+                      ? `${Math.floor((item.duration || 0) / 60)}:${String(Math.floor((item.duration || 0) % 60)).padStart(2, "0")}`
+                      : `${item.photos?.length || 0} photos`}
                   </span>
                 </div>
               </div>

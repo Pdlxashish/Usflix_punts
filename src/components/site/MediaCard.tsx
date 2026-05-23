@@ -9,7 +9,7 @@ import type { MediaItem } from "@/data/media";
 import { formatDuration } from "@/data/media";
 import { useProfile } from "@/context/profile";
 import { useHeartRainfall } from "@/context/heartRainfall";
-import { getMediaUrl } from "@/config/api";
+import { getMediaUrl } from "@/lib/api";
 
 // ─── Substring highlight helper (Req 12 AC4) ─────────────────────────────────
 export function HighlightText({ text, query }: { text: string; query: string }) {

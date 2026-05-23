@@ -1,5 +1,15 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Play, Info, ChevronDown, Plus, Check, X, ChevronLeft, ChevronRight, Images } from "lucide-react";
+import {
+  Play,
+  Info,
+  ChevronDown,
+  Plus,
+  Check,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Images,
+} from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { useBranding } from "@/context/branding";
 import { useContent } from "@/context/content";
@@ -8,20 +18,17 @@ import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { formatDuration } from "@/data/media";
 import type { MediaItem } from "@/data/media";
 import heroFallback from "@/assets/hero-sunset.jpg";
-import { getMediaUrl } from "@/config/api";
+import { getMediaUrl } from "@/lib/api";
 
 // ─── Inline Photo Lightbox ────────────────────────────────────────────────────
-function PhotoLightbox({
-  item,
-  onClose,
-}: {
-  item: MediaItem;
-  onClose: () => void;
-}) {
+function PhotoLightbox({ item, onClose }: { item: MediaItem; onClose: () => void }) {
   const photos = item.photos ?? [];
   const [idx, setIdx] = useState(0);
 
-  const prev = useCallback(() => setIdx((i) => (i - 1 + photos.length) % photos.length), [photos.length]);
+  const prev = useCallback(
+    () => setIdx((i) => (i - 1 + photos.length) % photos.length),
+    [photos.length],
+  );
   const next = useCallback(() => setIdx((i) => (i + 1) % photos.length), [photos.length]);
 
   useEffect(() => {
@@ -51,11 +58,15 @@ function PhotoLightbox({
       {/* Header */}
       <div className="absolute top-0 inset-x-0 flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/80 to-transparent z-10">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-primary">{item.category} · {item.year}</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-primary">
+            {item.category} · {item.year}
+          </p>
           <h2 className="font-display text-xl text-white">{item.title}</h2>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-white/50">{idx + 1} / {photos.length}</span>
+          <span className="text-sm text-white/50">
+            {idx + 1} / {photos.length}
+          </span>
           <button
             onClick={onClose}
             className="bg-white/10 border border-white/20 rounded-full p-2 text-white/80 hover:text-white hover:bg-white/20 transition-colors"
@@ -69,7 +80,10 @@ function PhotoLightbox({
       {/* Prev arrow */}
       {photos.length > 1 && (
         <button
-          onClick={(e) => { e.stopPropagation(); prev(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            prev();
+          }}
           className="absolute left-4 md:left-8 z-10 bg-black/50 border border-white/20 rounded-full p-3 text-white/80 hover:text-white hover:border-white/50 transition-all"
           aria-label="Previous photo"
         >
@@ -98,7 +112,10 @@ function PhotoLightbox({
       {/* Next arrow */}
       {photos.length > 1 && (
         <button
-          onClick={(e) => { e.stopPropagation(); next(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            next();
+          }}
           className="absolute right-4 md:right-8 z-10 bg-black/50 border border-white/20 rounded-full p-3 text-white/80 hover:text-white hover:border-white/50 transition-all"
           aria-label="Next photo"
         >
@@ -114,7 +131,10 @@ function PhotoLightbox({
             return (
               <button
                 key={i}
-                onClick={(e) => { e.stopPropagation(); setIdx(i); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIdx(i);
+                }}
                 className={`shrink-0 w-14 h-9 rounded overflow-hidden border-2 transition-all ${i === idx ? "border-primary scale-110" : "border-transparent opacity-50 hover:opacity-80"}`}
               >
                 <img src={thumbSrc} alt="" className="w-full h-full object-cover" />
@@ -169,12 +189,14 @@ export function Hero() {
   const rawMediaUrl = activeBanner?.mediaUrl ?? "";
   const isBlobUrl = rawMediaUrl.startsWith("blob:");
   const isVideoBackground = activeBanner?.type === "video" && !isBlobUrl && rawMediaUrl !== "";
-  const mediaUrl = isBlobUrl || !rawMediaUrl ? heroFallback : getMediaUrl(rawMediaUrl) || heroFallback;
+  const mediaUrl =
+    isBlobUrl || !rawMediaUrl ? heroFallback : getMediaUrl(rawMediaUrl) || heroFallback;
 
   // Get animation class based on branding setting
-  const animationClass = branding.heroAnimation && branding.heroAnimation !== "none"
-    ? `motion-safe:animate-[${branding.heroAnimation}_24s_ease-in-out_infinite_alternate]`
-    : "";
+  const animationClass =
+    branding.heroAnimation && branding.heroAnimation !== "none"
+      ? `motion-safe:animate-[${branding.heroAnimation}_24s_ease-in-out_infinite_alternate]`
+      : "";
 
   // Title / subtitle — from banner, fallback to branding
   const title = activeBanner?.title || branding.heroTagline || "Our Story";
@@ -243,7 +265,9 @@ export function Hero() {
     <>
       <section className="relative h-[96vh] sm:h-[90vh] md:h-[96vh] min-h-[500px] sm:min-h-[640px] w-full overflow-hidden bg-black">
         {/* Background Media */}
-        <div className={`absolute inset-0 transition-opacity duration-1000 ${loaded ? "opacity-100" : "opacity-0"}`}>
+        <div
+          className={`absolute inset-0 transition-opacity duration-1000 ${loaded ? "opacity-100" : "opacity-0"}`}
+        >
           {isVideoBackground ? (
             <video
               src={mediaUrl}
@@ -252,7 +276,7 @@ export function Hero() {
               loop
               playsInline
               preload="auto"
-              style={{ objectFit: 'cover' }}
+              style={{ objectFit: "cover" }}
               className="w-full h-full object-cover scale-105"
             />
           ) : (
@@ -262,7 +286,7 @@ export function Hero() {
               width={1920}
               height={1088}
               decoding="async"
-              style={{ objectFit: 'cover' }}
+              style={{ objectFit: "cover" }}
               className={`w-full h-full object-cover scale-105 ${animationClass}`}
             />
           )}
@@ -276,9 +300,13 @@ export function Hero() {
         <div className="relative z-10 h-full flex items-end pb-20 sm:pb-28 md:pb-36 px-4 sm:px-6 lg:px-12">
           <div className="max-w-2xl w-full">
             {/* Badge */}
-            <div className={`inline-flex items-center gap-2 mb-4 sm:mb-5 transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
+            <div
+              className={`inline-flex items-center gap-2 mb-4 sm:mb-5 transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            >
               <span className="h-px w-6 sm:w-8 bg-primary" />
-              <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] sm:tracking-[0.4em] text-primary">A Featured Memory</p>
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] sm:tracking-[0.4em] text-primary">
+                A Featured Memory
+              </p>
             </div>
 
             {/* Title */}
@@ -286,7 +314,12 @@ export function Hero() {
               className={`font-display text-4xl sm:text-5xl md:text-7xl lg:text-8xl text-foreground text-shadow-hero leading-[0.95] transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
               style={{ transitionDelay: "120ms" }}
             >
-              {mainTitle && <>{mainTitle}<br /></>}
+              {mainTitle && (
+                <>
+                  {mainTitle}
+                  <br />
+                </>
+              )}
               <span className="text-primary italic">{lastTitleWord}</span>
             </h1>
 
@@ -329,11 +362,14 @@ export function Hero() {
                   className="inline-flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 sm:ml-2 text-foreground/70 hover:text-foreground transition-colors group py-2 sm:py-0"
                   aria-label={inList ? "Remove from My List" : "Add to My List"}
                 >
-                  {inList
-                    ? <Check className="h-5 w-5 sm:h-6 sm:w-6 group-hover:scale-110 transition-transform" />
-                    : <Plus className="h-5 w-5 sm:h-6 sm:w-6 group-hover:scale-110 transition-transform" />
-                  }
-                  <span className="text-[10px] sm:text-[10px] uppercase tracking-wider">{inList ? "Added" : "My List"}</span>
+                  {inList ? (
+                    <Check className="h-5 w-5 sm:h-6 sm:w-6 group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <Plus className="h-5 w-5 sm:h-6 sm:w-6 group-hover:scale-110 transition-transform" />
+                  )}
+                  <span className="text-[10px] sm:text-[10px] uppercase tracking-wider">
+                    {inList ? "Added" : "My List"}
+                  </span>
                 </button>
               )}
             </div>
@@ -374,7 +410,10 @@ export function Hero() {
                     key={i}
                     onClick={() => {
                       setLoaded(false);
-                      setTimeout(() => { setCurrentIndex(i); setLoaded(true); }, 500);
+                      setTimeout(() => {
+                        setCurrentIndex(i);
+                        setLoaded(true);
+                      }, 500);
                     }}
                     className={`h-1.5 rounded-full transition-all duration-300 ${i === currentIndex ? "w-6 bg-primary" : "w-2 bg-white/30 hover:bg-white/50"}`}
                     aria-label={`Go to slide ${i + 1}`}
@@ -386,7 +425,10 @@ export function Hero() {
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1 text-foreground/40 motion-safe:animate-bounce" aria-hidden="true">
+        <div
+          className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1 text-foreground/40 motion-safe:animate-bounce"
+          aria-hidden="true"
+        >
           <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
       </section>
@@ -409,10 +451,7 @@ export function Hero() {
 
       {/* ── Inline photo lightbox ── */}
       {photoLightbox && (
-        <PhotoLightbox
-          item={photoLightbox}
-          onClose={() => setPhotoLightbox(null)}
-        />
+        <PhotoLightbox item={photoLightbox} onClose={() => setPhotoLightbox(null)} />
       )}
     </>
   );

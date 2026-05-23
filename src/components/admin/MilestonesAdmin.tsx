@@ -19,8 +19,26 @@ interface Milestone {
 const BLANK = { title: "", story: "", date: "", imageUrl: "", emoji: "💕" };
 
 const EMOJI_SUGGESTIONS = [
-  "💕", "💑", "🌹", "✈️", "🎬", "🍕", "🎉", "🌅", "💍", "🏠",
-  "🐾", "🎵", "🌊", "⛰️", "🎂", "🥂", "🌙", "☀️", "🤝", "👋",
+  "💕",
+  "💑",
+  "🌹",
+  "✈️",
+  "🎬",
+  "🍕",
+  "🎉",
+  "🌅",
+  "💍",
+  "🏠",
+  "🐾",
+  "🎵",
+  "🌊",
+  "⛰️",
+  "🎂",
+  "🥂",
+  "🌙",
+  "☀️",
+  "🤝",
+  "👋",
 ];
 
 export function MilestonesAdmin() {
@@ -45,13 +63,21 @@ export function MilestonesAdmin() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const startEdit = (m: Milestone) => {
     setEditingId(m.id);
     // Format date for input[type=date]
     const dateVal = m.date ? new Date(m.date).toISOString().split("T")[0] : "";
-    setForm({ title: m.title, story: m.story, date: dateVal, imageUrl: m.imageUrl, emoji: m.emoji });
+    setForm({
+      title: m.title,
+      story: m.story,
+      date: dateVal,
+      imageUrl: m.imageUrl,
+      emoji: m.emoji,
+    });
     setError(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -84,7 +110,10 @@ export function MilestonesAdmin() {
 
   const save = async () => {
     const err = validate();
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -133,7 +162,9 @@ export function MilestonesAdmin() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Title * (e.g. "First Date")</label>
+            <label className="text-xs text-muted-foreground mb-1 block">
+              Title * (e.g. "First Date")
+            </label>
             <input
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -168,7 +199,9 @@ export function MilestonesAdmin() {
                 key={e}
                 onClick={() => setForm((f) => ({ ...f, emoji: e }))}
                 className={`text-lg w-8 h-8 rounded-md flex items-center justify-center transition-colors ${
-                  form.emoji === e ? "bg-primary/20 border border-primary/40" : "hover:bg-card border border-transparent"
+                  form.emoji === e
+                    ? "bg-primary/20 border border-primary/40"
+                    : "hover:bg-card border border-transparent"
                 }`}
               >
                 {e}
@@ -199,7 +232,10 @@ export function MilestonesAdmin() {
               type="file"
               accept="image/*"
               disabled={uploading}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleImageUpload(f);
+              }}
               className="hidden"
             />
           </label>
@@ -227,7 +263,17 @@ export function MilestonesAdmin() {
             disabled={saving || uploading}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : editingId ? <><Check className="h-4 w-4" /> Save Changes</> : <><Plus className="h-4 w-4" /> Add Milestone</>}
+            {saving ? (
+              "Saving..."
+            ) : editingId ? (
+              <>
+                <Check className="h-4 w-4" /> Save Changes
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Add Milestone
+              </>
+            )}
           </button>
           {editingId && (
             <button
@@ -253,12 +299,18 @@ export function MilestonesAdmin() {
             ))}
           </div>
         ) : milestones.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">No milestones yet. Add your first one above.</p>
+          <p className="text-sm text-muted-foreground italic">
+            No milestones yet. Add your first one above.
+          </p>
         ) : (
           <div className="space-y-2">
             {milestones.map((m) => {
               const dateLabel = m.date
-                ? new Date(m.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                ? new Date(m.date).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
                 : "";
               return (
                 <div
@@ -286,8 +338,18 @@ export function MilestonesAdmin() {
                   </button>
                   {deleteTarget === m.id ? (
                     <div className="flex gap-1 shrink-0">
-                      <button onClick={() => remove(m.id)} className="text-xs text-destructive font-medium">Yes</button>
-                      <button onClick={() => setDeleteTarget(null)} className="text-xs text-muted-foreground">No</button>
+                      <button
+                        onClick={() => remove(m.id)}
+                        className="text-xs text-destructive font-medium"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(null)}
+                        className="text-xs text-muted-foreground"
+                      >
+                        No
+                      </button>
                     </div>
                   ) : (
                     <button

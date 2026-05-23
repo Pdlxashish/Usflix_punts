@@ -51,6 +51,17 @@ export const uploadLimiter = createLimiter({
 });
 
 /**
+ * Rate limiter for unauthenticated viewer actions (comments, my list, location, activity).
+ */
+export const publicWriteLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: { ok: false, error: "Too many requests, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Security headers middleware (alternative to helmet)
  */
 export function securityHeaders(req: Request, res: Response, next: NextFunction) {
@@ -78,11 +89,11 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 }
 
 /**
- * Request logging middleware
+ * Request logging middleware (all requests in development).
  */
 export function requestLogger(req: Request, res: Response, next: NextFunction) {
   const start = Date.now();
-  
+
   res.on("finish", () => {
     const duration = Date.now() - start;
     const log = {
@@ -93,14 +104,38 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
       ip: req.ip,
       userAgent: req.get("user-agent"),
     };
-    
+
     if (res.statusCode >= 400) {
       console.error("❌", JSON.stringify(log));
     } else {
       console.log("✅", JSON.stringify(log));
     }
   });
-  
+
+  next();
+}
+
+/**
+ * Production logging — only 4xx/5xx to reduce noise.
+ */
+export function productionRequestLogger(req: Request, res: Response, next: NextFunction) {
+  const start = Date.now();
+
+  res.on("finish", () => {
+    if (res.statusCode < 400) return;
+
+    console.error(
+      JSON.stringify({
+        level: "error",
+        method: req.method,
+        path: req.path,
+        status: res.statusCode,
+        durationMs: Date.now() - start,
+        ip: req.ip,
+      }),
+    );
+  });
+
   next();
 }
 

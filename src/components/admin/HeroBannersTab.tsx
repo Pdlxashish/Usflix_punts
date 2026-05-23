@@ -1,5 +1,13 @@
 import { useState, useRef } from "react";
-import { Plus, Trash2, Image as ImageIcon, Film, Link as LinkIcon, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Image as ImageIcon,
+  Film,
+  Link as LinkIcon,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import { useContent } from "@/context/content";
 
 export function HeroBannersTab() {
@@ -55,8 +63,14 @@ export function HeroBannersTab() {
   };
 
   const handleAdd = async () => {
-    if (!title.trim()) { setError("Title is required."); return; }
-    if (!mediaUrl) { setError("Please upload an image or video first."); return; }
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
+    if (!mediaUrl) {
+      setError("Please upload an image or video first.");
+      return;
+    }
 
     const res = await createHeroBanner({
       title: title.trim(),
@@ -67,8 +81,13 @@ export function HeroBannersTab() {
     });
 
     if (res.ok) {
-      setTitle(""); setSubtitle(""); setMediaUrl(""); setPreviewUrl("");
-      setLinkedMediaId(""); setType("image"); setError(null);
+      setTitle("");
+      setSubtitle("");
+      setMediaUrl("");
+      setPreviewUrl("");
+      setLinkedMediaId("");
+      setType("image");
+      setError(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } else {
       setError(res.error ?? "Failed to create banner.");
@@ -80,7 +99,11 @@ export function HeroBannersTab() {
       {/* Create New Banner */}
       <div className="bg-card/50 border border-border/60 rounded-xl p-4 sm:p-6">
         <h2 className="font-display text-lg sm:text-xl mb-4">Add Hero Banner</h2>
-        {error && <p className="text-sm text-destructive mb-3 flex items-center gap-1"><AlertCircle className="h-4 w-4" /> {error}</p>}
+        {error && (
+          <p className="text-sm text-destructive mb-3 flex items-center gap-1">
+            <AlertCircle className="h-4 w-4" /> {error}
+          </p>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="space-y-3">
@@ -106,9 +129,13 @@ export function HeroBannersTab() {
               className="w-full bg-input border border-border rounded-md px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="">-- No linked media (just a banner) --</option>
-              {mediaItems.filter(m => m.status === "ready").map(m => (
-                <option key={m.id} value={m.id}>Link to: {m.title}</option>
-              ))}
+              {mediaItems
+                .filter((m) => m.status === "ready")
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    Link to: {m.title}
+                  </option>
+                ))}
             </select>
           </div>
 
@@ -128,7 +155,11 @@ export function HeroBannersTab() {
                 </div>
               ) : previewUrl ? (
                 type === "image" ? (
-                  <img src={previewUrl} alt="Preview" className="w-full h-24 object-cover rounded mb-2" />
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="w-full h-24 object-cover rounded mb-2"
+                  />
                 ) : (
                   <video src={previewUrl} className="w-full h-24 object-cover rounded mb-2" />
                 )
@@ -139,7 +170,9 @@ export function HeroBannersTab() {
                     <Film className="h-6 w-6" />
                   </div>
                   <span className="text-sm">Click to select Image or Video *</span>
-                  <span className="text-xs text-muted-foreground/60 mt-1">File will be uploaded to server</span>
+                  <span className="text-xs text-muted-foreground/60 mt-1">
+                    File will be uploaded to server
+                  </span>
                 </div>
               )}
               {mediaUrl && !uploading && (
@@ -159,16 +192,25 @@ export function HeroBannersTab() {
 
       {/* Active Banners */}
       <div className="bg-card/50 border border-border/60 rounded-xl p-4 sm:p-6">
-        <h2 className="font-display text-lg sm:text-xl mb-4">Active Banners ({heroBanners.length})</h2>
+        <h2 className="font-display text-lg sm:text-xl mb-4">
+          Active Banners ({heroBanners.length})
+        </h2>
         {heroBanners.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No custom banners yet. The homepage will show the default layout.</p>
+          <p className="text-sm text-muted-foreground">
+            No custom banners yet. The homepage will show the default layout.
+          </p>
         ) : (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             {heroBanners.map((banner) => {
-              const linkedItem = banner.linkedMediaId ? mediaItems.find(m => m.id === banner.linkedMediaId) : null;
-              
+              const linkedItem = banner.linkedMediaId
+                ? mediaItems.find((m) => m.id === banner.linkedMediaId)
+                : null;
+
               return (
-                <div key={banner.id} className="group relative bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+                <div
+                  key={banner.id}
+                  className="group relative bg-card border border-border rounded-lg overflow-hidden flex flex-col"
+                >
                   {/* Media preview */}
                   <div className="relative h-32 bg-muted shrink-0">
                     {banner.type === "image" ? (
@@ -177,7 +219,7 @@ export function HeroBannersTab() {
                       <video src={banner.mediaUrl} className="w-full h-full object-cover" />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                    
+
                     {/* Delete button */}
                     <button
                       onClick={async () => await deleteHeroBanner(banner.id)}
@@ -187,12 +229,14 @@ export function HeroBannersTab() {
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                  
+
                   {/* Info */}
                   <div className="p-4 flex-1 flex flex-col relative z-10 -mt-12">
-                    <p className="font-display text-lg text-white text-shadow-sm truncate">{banner.title}</p>
+                    <p className="font-display text-lg text-white text-shadow-sm truncate">
+                      {banner.title}
+                    </p>
                     <p className="text-xs text-white/70 line-clamp-2 mt-0.5">{banner.subtitle}</p>
-                    
+
                     <div className="mt-auto pt-3">
                       {linkedItem ? (
                         <div className="inline-flex items-center gap-1.5 text-xs bg-primary/20 text-primary px-2 py-1 rounded">

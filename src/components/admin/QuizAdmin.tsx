@@ -50,7 +50,9 @@ export function QuizAdmin() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const startEdit = (q: QuizQuestion) => {
     setEditingId(q.id);
@@ -74,7 +76,10 @@ export function QuizAdmin() {
   };
 
   const save = async () => {
-    if (!form.question.trim()) { setError("Question is required."); return; }
+    if (!form.question.trim()) {
+      setError("Question is required.");
+      return;
+    }
     if (!form.optionA.trim() || !form.optionB.trim()) {
       setError("At least options A and B are required.");
       return;
@@ -217,7 +222,17 @@ export function QuizAdmin() {
               disabled={saving}
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {saving ? "Saving..." : editingId ? <><Check className="h-4 w-4" /> Save</> : <><Plus className="h-4 w-4" /> Add</>}
+              {saving ? (
+                "Saving..."
+              ) : editingId ? (
+                <>
+                  <Check className="h-4 w-4" /> Save
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" /> Add
+                </>
+              )}
             </button>
             {editingId && (
               <button
@@ -248,10 +263,7 @@ export function QuizAdmin() {
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
             {questions.map((q) => (
-              <div
-                key={q.id}
-                className="bg-input/40 border border-border/40 rounded-lg px-4 py-3"
-              >
+              <div key={q.id} className="bg-input/40 border border-border/40 rounded-lg px-4 py-3">
                 <div className="flex items-start gap-3 mb-2">
                   <p className="flex-1 text-sm font-medium">{q.question}</p>
                   <div className="flex gap-1 shrink-0">
@@ -264,8 +276,18 @@ export function QuizAdmin() {
                     </button>
                     {deleteTarget === q.id ? (
                       <div className="flex gap-1">
-                        <button onClick={() => remove(q.id)} className="text-xs text-destructive font-medium">Yes</button>
-                        <button onClick={() => setDeleteTarget(null)} className="text-xs text-muted-foreground">No</button>
+                        <button
+                          onClick={() => remove(q.id)}
+                          className="text-xs text-destructive font-medium"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(null)}
+                          className="text-xs text-muted-foreground"
+                        >
+                          No
+                        </button>
                       </div>
                     ) : (
                       <button

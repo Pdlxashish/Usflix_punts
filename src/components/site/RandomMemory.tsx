@@ -6,18 +6,7 @@ import { useState, useCallback, useRef } from "react";
 import { Shuffle, Play, X, ChevronRight } from "lucide-react";
 import { getMediaUrl } from "@/lib/api";
 import { useHeartRainfall } from "@/context/heartRainfall";
-
-interface MediaItem {
-  id: string;
-  type: "photo" | "video" | "voice";
-  title: string;
-  tagline: string;
-  thumbnail: string;
-  videoUrl?: string;
-  photos?: string[];
-  category: string;
-  status: string;
-}
+import type { MediaItem } from "@/data/media";
 
 interface RandomMemoryProps {
   mediaItems: MediaItem[];
@@ -36,7 +25,7 @@ export function RandomMemory({ mediaItems, onPlay }: RandomMemoryProps) {
   const { triggerHeartBurst } = useHeartRainfall();
 
   const eligible = mediaItems.filter(
-    (m) => m.status === "ready" && (m.type === "photo" || m.type === "video")
+    (m) => m.status === "ready" && (m.type === "photo" || m.type === "video"),
   );
 
   const spin = useCallback(
@@ -67,7 +56,7 @@ export function RandomMemory({ mediaItems, onPlay }: RandomMemoryProps) {
       setRevealed(true);
       triggerHeartBurst({ clientX: e.clientX, clientY: e.clientY });
     },
-    [spinning, eligible, triggerHeartBurst]
+    [spinning, eligible, triggerHeartBurst],
   );
 
   const dismiss = () => {
@@ -81,7 +70,7 @@ export function RandomMemory({ mediaItems, onPlay }: RandomMemoryProps) {
     ? picked.thumbnail
       ? getMediaUrl(picked.thumbnail)
       : picked.photos?.[0]
-        ? getMediaUrl(picked.photos[0])
+        ? getMediaUrl(picked.photos[0].src)
         : null
     : null;
 
@@ -154,11 +143,7 @@ export function RandomMemory({ mediaItems, onPlay }: RandomMemoryProps) {
               {/* Thumbnail */}
               {thumbSrc ? (
                 <div className="relative aspect-video bg-muted">
-                  <img
-                    src={thumbSrc}
-                    alt={picked.title}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={thumbSrc} alt={picked.title} className="w-full h-full object-cover" />
                   {picked.type === "video" && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                       <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center border border-white/30">
@@ -175,7 +160,9 @@ export function RandomMemory({ mediaItems, onPlay }: RandomMemoryProps) {
 
               {/* Info */}
               <div className="px-5 py-4 text-left">
-                <p className="text-xs text-primary uppercase tracking-widest mb-1">{picked.category}</p>
+                <p className="text-xs text-primary uppercase tracking-widest mb-1">
+                  {picked.category}
+                </p>
                 <h3 className="font-display text-xl mb-1">{picked.title}</h3>
                 {picked.tagline && (
                   <p className="text-sm text-muted-foreground line-clamp-2">{picked.tagline}</p>
@@ -183,7 +170,10 @@ export function RandomMemory({ mediaItems, onPlay }: RandomMemoryProps) {
 
                 {picked.type === "video" && onPlay && (
                   <button
-                    onClick={() => { onPlay(picked); dismiss(); }}
+                    onClick={() => {
+                      onPlay(picked);
+                      dismiss();
+                    }}
                     className="mt-4 inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors w-full justify-center"
                   >
                     <Play className="h-4 w-4 fill-current" /> Watch this memory
@@ -194,7 +184,7 @@ export function RandomMemory({ mediaItems, onPlay }: RandomMemoryProps) {
 
             {/* Spin again */}
             <button
-              onClick={spin as any}
+              onClick={spin}
               className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               <ChevronRight className="h-3.5 w-3.5" /> Another one

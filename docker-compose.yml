@@ -48,15 +48,14 @@ services:
       retries: 3
       start_period: 40s
 
-  # Frontend (Optional - for full-stack Docker deployment)
+  # Optional static nginx shell (proxies /api + /uploads to backend).
+  # For Cloudflare Workers SSR, deploy the frontend with: npm run deploy:worker
   frontend:
     build:
       context: .
       args:
-        # Backend URL as seen from the browser (not the container network)
-        # For local Docker: http://localhost:3001
-        # For production: https://api.your-domain.com
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3001}
+        # Empty = same-origin via nginx proxy (recommended for Docker)
+        VITE_API_URL: ${VITE_API_URL:-}
     container_name: usflix-frontend
     restart: unless-stopped
     ports:

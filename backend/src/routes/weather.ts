@@ -121,33 +121,22 @@ router.post("/auto-location", async (req: Request, res: Response) => {
         ? profileName.trim()
         : "My Location";
 
-    // Check if a weather location already exists for this profile
-    const { rows: existing } = await pool.query(
-      "SELECT id FROM weather_locations WHERE profile_id = $1",
-      [profileId]
+    const { rows: primaryRows } = await pool.query(
+      "SELECT id FROM weather_locations WHERE is_primary = true LIMIT 1"
     );
+    const isPrimary = primaryRows.length === 0;
+    const id = randomUUID();
 
-    if (existing.length > 0) {
-      // Update existing
-      await pool.query(
-        `UPDATE weather_locations
-         SET location_name=$1, latitude=$2, longitude=$3
-         WHERE profile_id=$4`,
-        [name, latitude, longitude, profileId]
-      );
-    } else {
-      // Insert new — first location for this profile becomes primary if no primary exists
-      const { rows: primaryRows } = await pool.query(
-        "SELECT id FROM weather_locations WHERE is_primary = true LIMIT 1"
-      );
-      const isPrimary = primaryRows.length === 0;
-      const id = randomUUID();
-      await pool.query(
-        `INSERT INTO weather_locations (id, profile_id, location_name, latitude, longitude, is_primary)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [id, profileId, name, latitude, longitude, isPrimary]
-      );
-    }
+    await pool.query(
+      `INSERT INTO weather_locations (id, profile_id, location_name, latitude, longitude, is_primary)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (profile_id) WHERE profile_id IS NOT NULL
+       DO UPDATE SET
+         location_name = EXCLUDED.location_name,
+         latitude = EXCLUDED.latitude,
+         longitude = EXCLUDED.longitude`,
+      [id, profileId, name, latitude, longitude, isPrimary]
+    );
 
     res.json({ ok: true });
   } catch (err: any) {
@@ -160,16 +149,26 @@ router.post("/auto-location", async (req: Request, res: Response) => {
 router.get("/current", async (_req: Request, res: Response) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM weather_locations ORDER BY is_primary DESC, created_at ASC"
+      `SELECT DISTINCT ON (profile_id) *
+       FROM weather_locations
+       WHERE profile_id IS NOT NULL
+       ORDER BY profile_id, is_primary DESC, created_at DESC`
+    );
+    const { rows: unassigned } = await pool.query(
+      `SELECT * FROM weather_locations WHERE profile_id IS NULL ORDER BY created_at ASC`
+    );
+    const allRows = [...rows, ...unassigned].sort(
+      (a, b) => Number(b.is_primary) - Number(a.is_primary) || 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
     
-    if (rows.length === 0) {
+    if (allRows.length === 0) {
       res.json([]);
       return;
     }
 
     // Fetch weather for all locations
-    const weatherPromises = rows.map(async (row) => {
+    const weatherPromises = allRows.map(async (row) => {
       const location = mapRow(row);
       const weather = await fetchWeatherData(location.latitude, location.longitude);
       return {
@@ -213,13 +212,27 @@ router.post("/locations", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    if (profileId) {
+      const { rows: existing } = await pool.query(
+        "SELECT id FROM weather_locations WHERE profile_id = $1",
+        [profileId]
+      );
+      if (existing.length > 0) {
+        res.status(409).json({
+          ok: false,
+          error: "This profile already has a weather location. Edit the existing one instead.",
+        });
+        return;
+      }
+    }
+
     const id = randomUUID();
     const { rows } = await pool.query(
       `INSERT INTO weather_locations (id, profile_id, location_name, latitude, longitude, is_primary)
        VALUES ($1, $2, $3, $4, $5, false) RETURNING *`,
       [id, profileId || null, locationName.trim(), latitude, longitude]
     );
-    
+
     res.status(201).json({ ok: true, location: mapRow(rows[0]) });
   } catch (err: any) {
     console.error("weather locations POST error:", err);

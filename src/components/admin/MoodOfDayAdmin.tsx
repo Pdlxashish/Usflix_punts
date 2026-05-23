@@ -45,10 +45,15 @@ export function MoodOfDayAdmin() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const save = async () => {
-    if (!message.trim()) { setError("Message is required."); return; }
+    if (!message.trim()) {
+      setError("Message is required.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -99,7 +104,9 @@ export function MoodOfDayAdmin() {
                   key={e}
                   onClick={() => setEmoji(e)}
                   className={`text-2xl w-10 h-10 rounded-md flex items-center justify-center transition-colors ${
-                    emoji === e ? "bg-primary/20 border-2 border-primary/40" : "hover:bg-card border-2 border-transparent"
+                    emoji === e
+                      ? "bg-primary/20 border-2 border-primary/40"
+                      : "hover:bg-card border-2 border-transparent"
                   }`}
                 >
                   {e}
@@ -133,7 +140,13 @@ export function MoodOfDayAdmin() {
             disabled={saving}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : <><Check className="h-4 w-4" /> {todayMood ? "Update" : "Set"} Today's Mood</>}
+            {saving ? (
+              "Saving..."
+            ) : (
+              <>
+                <Check className="h-4 w-4" /> {todayMood ? "Update" : "Set"} Today's Mood
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -146,7 +159,9 @@ export function MoodOfDayAdmin() {
             <div className="text-5xl shrink-0">{emoji}</div>
             <div className="flex-1">
               <h4 className="font-display text-xl mb-1">Today's Mood</h4>
-              <p className="text-muted-foreground">{message || "Your message will appear here..."}</p>
+              <p className="text-muted-foreground">
+                {message || "Your message will appear here..."}
+              </p>
             </div>
           </div>
         </div>

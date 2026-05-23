@@ -19,10 +19,17 @@ export function isRateLimitDisabled(): boolean {
 
 export function getAuthCookieOptions(): CookieOptions {
   const isProd = process.env.NODE_ENV === "production";
+  const sameSiteEnv = process.env.COOKIE_SAME_SITE?.toLowerCase();
+  let sameSite: CookieOptions["sameSite"] = isProd ? "strict" : "lax";
+  if (sameSiteEnv === "none" || sameSiteEnv === "lax" || sameSiteEnv === "strict") {
+    sameSite = sameSiteEnv;
+  }
+  // sameSite=none requires Secure
+  const secure = isProd || sameSite === "none";
   return {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "strict" : "lax",
+    secure,
+    sameSite,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     path: "/",
   };
@@ -47,7 +54,12 @@ export function validateNewPassword(password: unknown): string | null {
   return null;
 }
 
-export function validateJwtSecret(): void {
+const DEV_JWT_FALLBACK = "usflix-super-secret-key-change-in-production";
+
+/**
+ * Returns JWT secret; throws in production if missing or weak.
+ */
+export function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
   const isProd = process.env.NODE_ENV === "production";
 
@@ -57,7 +69,7 @@ export function validateJwtSecret(): void {
       throw new Error(msg);
     }
     console.warn(`⚠️  ${msg} Using a development fallback — never deploy without a strong secret.`);
-    return;
+    return DEV_JWT_FALLBACK;
   }
 
   if (WEAK_JWT_SECRETS.has(secret)) {
@@ -67,4 +79,10 @@ export function validateJwtSecret(): void {
     }
     console.warn(`⚠️  ${msg}`);
   }
+
+  return secret;
+}
+
+export function validateJwtSecret(): void {
+  getJwtSecret();
 }

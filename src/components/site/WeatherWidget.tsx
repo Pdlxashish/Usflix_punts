@@ -181,7 +181,20 @@ export function WeatherWidget() {
         }
         return loc;
       });
-      setLocations(enriched);
+      // One card per profile (guard against duplicate DB rows)
+      const byProfile = new Map<string, WeatherLocation>();
+      const extras: WeatherLocation[] = [];
+      for (const loc of enriched) {
+        if (!loc.profileId) {
+          extras.push(loc);
+          continue;
+        }
+        const prev = byProfile.get(loc.profileId);
+        if (!prev || (loc.isPrimary && !prev.isPrimary)) {
+          byProfile.set(loc.profileId, loc);
+        }
+      }
+      setLocations([...byProfile.values(), ...extras]);
     } catch {
       setLocations([]);
     } finally {

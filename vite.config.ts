@@ -18,8 +18,8 @@ export default defineConfig({
   vite: {
     plugins: useHttps ? [basicSsl()] : [],
     server: {
-      // HTTPS + basic-ssl fixes Windows Chrome ERR_SSL_VERSION_OR_CIPHER_MISMATCH
-      https: useHttps,
+      // HTTPS via basic-ssl plugin (empty object satisfies Vite 7 server.https typing)
+      ...(useHttps ? { https: {} } : {}),
       host: true,
       proxy: {
         "/api": {

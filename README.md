@@ -110,7 +110,7 @@ memory-flix-for-us-main/
 │   └── data/              # Static data
 ├── scripts/               # Deployment scripts
 ├── docker-compose.yml     # Docker orchestration
-└── DEPLOYMENT_GUIDE.md    # Detailed deployment instructions
+└── DEPLOYMENT.md          # Production deployment guide
 ```
 
 ---
@@ -142,8 +142,7 @@ memory-flix-for-us-main/
 
 ## 📚 Documentation
 
-- **[Deployment Guide](DEPLOYMENT_GUIDE.md)** - Complete deployment instructions
-- **[Deployment Readiness](DEPLOYMENT_READINESS.md)** - Pre-deployment checklist
+- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment (Cloudflare + API)
 - **[Storage Architecture](STORAGE_ARCHITECTURE.md)** - File storage system explained
 
 ---
@@ -169,7 +168,7 @@ memory-flix-for-us-main/
    vercel --prod
    ```
 
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed instructions.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
 
 ---
 
@@ -258,7 +257,7 @@ This project is licensed under the MIT License.
 
 ## 🆘 Support
 
-- 📖 Read the [Deployment Guide](DEPLOYMENT_GUIDE.md)
+- 📖 Read the [Deployment Guide](DEPLOYMENT.md)
 - 🐛 Report issues on GitHub
 - 💬 Ask questions in Discussions
 

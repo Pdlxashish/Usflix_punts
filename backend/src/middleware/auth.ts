@@ -3,22 +3,21 @@
  * Reads token from HttpOnly cookie "usflix_token".
  */
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
-import { AUTH_COOKIE_NAME, validateJwtSecret } from "../config/auth.js";
+import jwt, { type SignOptions } from "jsonwebtoken";
+import { AUTH_COOKIE_NAME, getJwtSecret, validateJwtSecret } from "../config/auth.js";
 
-dotenv.config();
 validateJwtSecret();
 
-const JWT_SECRET = process.env.JWT_SECRET || "usflix-super-secret-key-change-in-production";
+const JWT_SECRET = getJwtSecret();
 
 export interface AuthPayload {
   userId: number;
   username: string;
 }
 
-// Extend Express Request to include auth info
+// Extend Express Request to include auth info (namespace required by @types/express)
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       auth?: AuthPayload;
@@ -69,6 +68,6 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
  * Generate a JWT token for a user.
  */
 export function generateToken(payload: AuthPayload): string {
-  const expiresIn = process.env.JWT_EXPIRES_IN || "24h";
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn as any });
+  const expiresIn = (process.env.JWT_EXPIRES_IN || "24h") as SignOptions["expiresIn"];
+  return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }

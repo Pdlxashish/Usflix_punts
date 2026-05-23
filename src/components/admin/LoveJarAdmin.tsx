@@ -42,7 +42,9 @@ export function LoveJarAdmin() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const startEdit = (r: JarReason) => {
     setEditingId(r.id);
@@ -57,7 +59,10 @@ export function LoveJarAdmin() {
   };
 
   const save = async () => {
-    if (!form.reason.trim()) { setError("Reason is required."); return; }
+    if (!form.reason.trim()) {
+      setError("Reason is required.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -95,7 +100,10 @@ export function LoveJarAdmin() {
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean);
-    if (lines.length === 0) { setError("Enter at least one reason."); return; }
+    if (lines.length === 0) {
+      setError("Enter at least one reason.");
+      return;
+    }
     setBulkSaving(true);
     setError(null);
     let added = 0;
@@ -119,13 +127,20 @@ export function LoveJarAdmin() {
       {/* Mode toggle */}
       <div className="flex gap-2">
         <button
-          onClick={() => { setBulkMode(false); setError(null); }}
+          onClick={() => {
+            setBulkMode(false);
+            setError(null);
+          }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${!bulkMode ? "bg-primary text-primary-foreground" : "border border-border hover:bg-card"}`}
         >
           Single Add
         </button>
         <button
-          onClick={() => { setBulkMode(true); setError(null); cancelEdit(); }}
+          onClick={() => {
+            setBulkMode(true);
+            setError(null);
+            cancelEdit();
+          }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${bulkMode ? "bg-primary text-primary-foreground" : "border border-border hover:bg-card"}`}
         >
           Bulk Add (one per line)
@@ -152,7 +167,9 @@ export function LoveJarAdmin() {
             <textarea
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
-              placeholder={"Because you laugh at my terrible jokes\nBecause you make everything feel safe\nBecause of the way you look at me..."}
+              placeholder={
+                "Because you laugh at my terrible jokes\nBecause you make everything feel safe\nBecause of the way you look at me..."
+              }
               rows={10}
               className="w-full bg-input border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none mb-3"
             />
@@ -161,7 +178,13 @@ export function LoveJarAdmin() {
               disabled={bulkSaving}
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {bulkSaving ? "Adding..." : <><Plus className="h-4 w-4" /> Add All</>}
+              {bulkSaving ? (
+                "Adding..."
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" /> Add All
+                </>
+              )}
             </button>
           </>
         ) : (
@@ -195,7 +218,9 @@ export function LoveJarAdmin() {
                   key={e}
                   onClick={() => setForm((f) => ({ ...f, emoji: e }))}
                   className={`text-lg w-8 h-8 rounded-md flex items-center justify-center transition-colors ${
-                    form.emoji === e ? "bg-primary/20 border border-primary/40" : "hover:bg-card border border-transparent"
+                    form.emoji === e
+                      ? "bg-primary/20 border border-primary/40"
+                      : "hover:bg-card border border-transparent"
                   }`}
                 >
                   {e}
@@ -209,7 +234,17 @@ export function LoveJarAdmin() {
                 disabled={saving}
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                {saving ? "Saving..." : editingId ? <><Check className="h-4 w-4" /> Save</> : <><Plus className="h-4 w-4" /> Add</>}
+                {saving ? (
+                  "Saving..."
+                ) : editingId ? (
+                  <>
+                    <Check className="h-4 w-4" /> Save
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" /> Add
+                  </>
+                )}
               </button>
               {editingId && (
                 <button
@@ -256,8 +291,18 @@ export function LoveJarAdmin() {
                 </button>
                 {deleteTarget === r.id ? (
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => remove(r.id)} className="text-xs text-destructive font-medium">Yes</button>
-                    <button onClick={() => setDeleteTarget(null)} className="text-xs text-muted-foreground">No</button>
+                    <button
+                      onClick={() => remove(r.id)}
+                      className="text-xs text-destructive font-medium"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(null)}
+                      className="text-xs text-muted-foreground"
+                    >
+                      No
+                    </button>
                   </div>
                 ) : (
                   <button

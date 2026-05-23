@@ -1,12 +1,26 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Save, CheckCircle, AlertCircle, Users, ImagePlus, Loader2, X, UserCircle, Paintbrush, Cake,
+  Save,
+  CheckCircle,
+  AlertCircle,
+  Users,
+  ImagePlus,
+  Loader2,
+  X,
+  UserCircle,
+  Paintbrush,
+  Cake,
 } from "lucide-react";
 import { useProfile } from "@/context/profile";
 import { useToast } from "@/components/ui/Toast";
 import { getMediaUrl } from "@/lib/api";
 import { uploadAdminFile } from "@/lib/admin-upload";
-import { AdminSubNavLayout, AdminSectionCard, AdminFormActions, type AdminNavSection } from "@/components/admin/AdminSubNavLayout";
+import {
+  AdminSubNavLayout,
+  AdminSectionCard,
+  AdminFormActions,
+  type AdminNavSection,
+} from "@/components/admin/AdminSubNavLayout";
 
 const PROFILE_PICTURE_SHAPES = [
   { value: "square", label: "Square" },
@@ -29,8 +43,20 @@ const PROFILE_COLOR_PRESETS = [
 type ProfileSection = "pick" | "edit";
 
 const SECTIONS: AdminNavSection<ProfileSection>[] = [
-  { id: "pick", label: "Choose Profile", shortLabel: "Pick", icon: Users, description: "Select You, Me, or Us to customize" },
-  { id: "edit", label: "Edit Details", shortLabel: "Edit", icon: Paintbrush, description: "Name, color, photo, and icon shape" },
+  {
+    id: "pick",
+    label: "Choose Profile",
+    shortLabel: "Pick",
+    icon: Users,
+    description: "Select You, Me, or Us to customize",
+  },
+  {
+    id: "edit",
+    label: "Edit Details",
+    shortLabel: "Edit",
+    icon: Paintbrush,
+    description: "Name, color, photo, and icon shape",
+  },
 ];
 
 export function ProfilesTab() {
@@ -93,7 +119,7 @@ export function ProfilesTab() {
       profileForm.color,
       profileForm.profilePictureUrl || null,
       profileForm.avatarShape,
-      profileForm.birthday.trim() || null
+      profileForm.birthday.trim() || null,
     );
     setSaveStatus(result.ok ? "success" : "error");
     if (result.ok) {
@@ -104,33 +130,37 @@ export function ProfilesTab() {
     }
   };
 
-  const saveFooter = section === "edit" && selectedProfileId ? (
-    <AdminFormActions>
-      <button
-        type="button"
-        disabled={saveStatus === "saving"}
-        onClick={handleSave}
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
-      >
-        <Save className="h-4 w-4 shrink-0" />
-        {saveStatus === "saving" ? "Saving…" : "Save profile"}
-      </button>
-      {saveStatus === "success" && (
-        <span className="text-sm text-emerald-400 flex items-center gap-1">
-          <CheckCircle className="h-4 w-4" /> Saved
-        </span>
-      )}
-      {saveStatus === "error" && (
-        <span className="text-sm text-destructive flex items-center gap-1">
-          <AlertCircle className="h-4 w-4" /> Save failed
-        </span>
-      )}
-    </AdminFormActions>
-  ) : undefined;
+  const saveFooter =
+    section === "edit" && selectedProfileId ? (
+      <AdminFormActions>
+        <button
+          type="button"
+          disabled={saveStatus === "saving"}
+          onClick={handleSave}
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+        >
+          <Save className="h-4 w-4 shrink-0" />
+          {saveStatus === "saving" ? "Saving…" : "Save profile"}
+        </button>
+        {saveStatus === "success" && (
+          <span className="text-sm text-emerald-400 flex items-center gap-1">
+            <CheckCircle className="h-4 w-4" /> Saved
+          </span>
+        )}
+        {saveStatus === "error" && (
+          <span className="text-sm text-destructive flex items-center gap-1">
+            <AlertCircle className="h-4 w-4" /> Save failed
+          </span>
+        )}
+      </AdminFormActions>
+    ) : undefined;
 
   if (profiles.length === 0) {
     return (
-      <AdminSectionCard title="No profiles found" description="Start the backend and run database seed, then refresh.">
+      <AdminSectionCard
+        title="No profiles found"
+        description="Start the backend and run database seed, then refresh."
+      >
         <p className="text-sm text-muted-foreground">Expected profiles: You, Me, Us.</p>
       </AdminSectionCard>
     );
@@ -151,12 +181,18 @@ export function ProfilesTab() {
       footer={saveFooter}
     >
       {section === "pick" && (
-        <AdminSectionCard title="Who are you editing?" description="Tap a profile, then open Edit Details.">
+        <AdminSectionCard
+          title="Who are you editing?"
+          description="Tap a profile, then open Edit Details."
+        >
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {profiles.map((profile) => {
               const shapeClass =
-                profile.avatar_shape === "circle" ? "rounded-full" :
-                profile.avatar_shape === "rounded" ? "rounded-2xl" : "rounded-md";
+                profile.avatar_shape === "circle"
+                  ? "rounded-full"
+                  : profile.avatar_shape === "rounded"
+                    ? "rounded-2xl"
+                    : "rounded-md";
               const active = selectedProfileId === profile.id;
               return (
                 <button
@@ -172,14 +208,22 @@ export function ProfilesTab() {
                       : "border-border/60 hover:border-primary/40 hover:bg-card/80"
                   }`}
                 >
-                  <div className={`w-14 h-14 sm:w-16 sm:h-16 ${shapeClass} ${profile.color} flex items-center justify-center text-xl sm:text-2xl font-display text-white overflow-hidden shrink-0`}>
+                  <div
+                    className={`w-14 h-14 sm:w-16 sm:h-16 ${shapeClass} ${profile.color} flex items-center justify-center text-xl sm:text-2xl font-display text-white overflow-hidden shrink-0`}
+                  >
                     {profile.profile_picture_url ? (
-                      <img src={getMediaUrl(profile.profile_picture_url)} alt="" className={`w-full h-full object-cover ${shapeClass}`} />
+                      <img
+                        src={getMediaUrl(profile.profile_picture_url)}
+                        alt=""
+                        className={`w-full h-full object-cover ${shapeClass}`}
+                      />
                     ) : (
                       profile.name.charAt(0)
                     )}
                   </div>
-                  <span className={`text-sm font-semibold truncate max-w-full ${active ? "text-primary" : ""}`}>
+                  <span
+                    className={`text-sm font-semibold truncate max-w-full ${active ? "text-primary" : ""}`}
+                  >
                     {profile.name}
                   </span>
                 </button>
@@ -196,7 +240,9 @@ export function ProfilesTab() {
         >
           <div className="space-y-5 min-w-0">
             <div className="space-y-2">
-              <label htmlFor="profile-name" className="text-sm font-medium">Display name</label>
+              <label htmlFor="profile-name" className="text-sm font-medium">
+                Display name
+              </label>
               <input
                 id="profile-name"
                 type="text"
@@ -216,11 +262,15 @@ export function ProfilesTab() {
                     type="button"
                     onClick={() => setProfileForm((f) => ({ ...f, color: preset.value }))}
                     className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border-2 min-w-0 ${
-                      profileForm.color === preset.value ? "border-white/60" : "border-transparent hover:border-white/20"
+                      profileForm.color === preset.value
+                        ? "border-white/60"
+                        : "border-transparent hover:border-white/20"
                     }`}
                   >
                     <div className={`w-8 h-8 rounded-full ${preset.value} shrink-0`} />
-                    <span className="text-[10px] sm:text-xs text-muted-foreground text-center leading-tight break-words">{preset.label}</span>
+                    <span className="text-[10px] sm:text-xs text-muted-foreground text-center leading-tight break-words">
+                      {preset.label}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -232,22 +282,51 @@ export function ProfilesTab() {
                 <input
                   type="text"
                   value={profileForm.profilePictureUrl}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, profilePictureUrl: e.target.value }))}
+                  onChange={(e) =>
+                    setProfileForm((f) => ({ ...f, profilePictureUrl: e.target.value }))
+                  }
                   placeholder="URL or upload"
                   className="flex-1 min-w-0 bg-input border border-border rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-                <input ref={picInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePicUpload(f); }} />
-                <button type="button" onClick={() => picInputRef.current?.click()} disabled={uploadingPic}
-                  className="shrink-0 inline-flex items-center justify-center gap-2 border border-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-card disabled:opacity-50">
-                  {uploadingPic ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                <input
+                  ref={picInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handlePicUpload(f);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => picInputRef.current?.click()}
+                  disabled={uploadingPic}
+                  className="shrink-0 inline-flex items-center justify-center gap-2 border border-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-card disabled:opacity-50"
+                >
+                  {uploadingPic ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-4 w-4" />
+                  )}
                   Upload
                 </button>
               </div>
               {profileForm.profilePictureUrl && (
                 <div className="flex items-center gap-3 p-3 bg-input/30 border border-border/40 rounded-lg min-w-0">
-                  <img src={getMediaUrl(profileForm.profilePictureUrl)} alt="" className="h-12 w-12 object-cover rounded-lg shrink-0" />
-                  <p className="flex-1 text-xs text-muted-foreground truncate min-w-0">{profileForm.profilePictureUrl}</p>
-                  <button type="button" onClick={() => setProfileForm((f) => ({ ...f, profilePictureUrl: "" }))} className="shrink-0 text-muted-foreground hover:text-destructive">
+                  <img
+                    src={getMediaUrl(profileForm.profilePictureUrl)}
+                    alt=""
+                    className="h-12 w-12 object-cover rounded-lg shrink-0"
+                  />
+                  <p className="flex-1 text-xs text-muted-foreground truncate min-w-0">
+                    {profileForm.profilePictureUrl}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setProfileForm((f) => ({ ...f, profilePictureUrl: "" }))}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                  >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -255,7 +334,10 @@ export function ProfilesTab() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="profile-birthday" className="text-sm font-medium flex items-center gap-2">
+              <label
+                htmlFor="profile-birthday"
+                className="text-sm font-medium flex items-center gap-2"
+              >
                 <Cake className="h-4 w-4 text-primary" />
                 Birthday
               </label>
@@ -285,9 +367,15 @@ export function ProfilesTab() {
                         : "border-border/60 text-muted-foreground"
                     }`}
                   >
-                    <div className={`w-8 h-8 bg-primary/40 shrink-0 ${
-                      shape.value === "circle" ? "rounded-full" : shape.value === "rounded" ? "rounded-xl" : "rounded-none"
-                    }`} />
+                    <div
+                      className={`w-8 h-8 bg-primary/40 shrink-0 ${
+                        shape.value === "circle"
+                          ? "rounded-full"
+                          : shape.value === "rounded"
+                            ? "rounded-xl"
+                            : "rounded-none"
+                      }`}
+                    />
                     <span className="text-xs font-medium">{shape.label}</span>
                   </button>
                 ))}

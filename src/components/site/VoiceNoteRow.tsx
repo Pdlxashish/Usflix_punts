@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import { Mic, Play, Pause } from "lucide-react";
 import type { MediaItem } from "@/data/media";
 import { formatDuration } from "@/data/media";
-import { getMediaUrl } from "@/config/api";
+import { getMediaUrl } from "@/lib/api";
 
 interface VoiceNoteRowProps {
   title: string;

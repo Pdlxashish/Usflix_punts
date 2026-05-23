@@ -49,11 +49,19 @@ export function LoveLettersAdmin() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const startEdit = (l: LoveLetter) => {
     setEditingId(l.id);
-    setForm({ from: l.from, preview: l.preview, message: l.message, color: l.color, sortRank: l.sortRank });
+    setForm({
+      from: l.from,
+      preview: l.preview,
+      message: l.message,
+      color: l.color,
+      sortRank: l.sortRank,
+    });
     setError(null);
   };
 
@@ -64,7 +72,7 @@ export function LoveLettersAdmin() {
   };
 
   const validate = () => {
-    if (!form.from.trim()) return "\"From\" name is required.";
+    if (!form.from.trim()) return '"From" name is required.';
     if (!form.preview.trim()) return "Preview text is required.";
     if (!form.message.trim()) return "Full message is required.";
     if (form.preview.length > 300) return "Preview must be 300 characters or fewer.";
@@ -73,7 +81,10 @@ export function LoveLettersAdmin() {
 
   const save = async () => {
     const err = validate();
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -109,9 +120,7 @@ export function LoveLettersAdmin() {
     <div className="space-y-6">
       {/* Form */}
       <div className="bg-card/50 border border-border/60 rounded-xl p-5">
-        <h3 className="font-medium text-sm mb-4">
-          {editingId ? "Edit Letter" : "Add New Letter"}
-        </h3>
+        <h3 className="font-medium text-sm mb-4">{editingId ? "Edit Letter" : "Add New Letter"}</h3>
 
         {error && (
           <p className="text-sm text-destructive mb-3 flex items-center gap-1">
@@ -138,7 +147,9 @@ export function LoveLettersAdmin() {
               className="w-full bg-input border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               {COLORS.map((c) => (
-                <option key={c} value={c}>{COLOR_LABELS[c]}</option>
+                <option key={c} value={c}>
+                  {COLOR_LABELS[c]}
+                </option>
               ))}
             </select>
           </div>
@@ -177,7 +188,17 @@ export function LoveLettersAdmin() {
             disabled={saving}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : editingId ? <><Check className="h-4 w-4" /> Save Changes</> : <><Plus className="h-4 w-4" /> Add Letter</>}
+            {saving ? (
+              "Saving..."
+            ) : editingId ? (
+              <>
+                <Check className="h-4 w-4" /> Save Changes
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Add Letter
+              </>
+            )}
           </button>
           {editingId && (
             <button

@@ -11,7 +11,12 @@ import path from "path";
 import fs from "fs";
 import heicConvert from "heic-convert";
 import { requireAuth } from "../middleware/auth.js";
-import { generateVideoThumbnail, isVideoFile, getVideoDuration, convertToWebFormat } from "../utils/videoThumbnail.js";
+import {
+  generateVideoThumbnail,
+  isVideoFile,
+  getVideoDuration,
+  convertToWebFormat,
+} from "../utils/videoThumbnail.js";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "./uploads";
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || "4294967296"); // 4GB
@@ -32,22 +37,63 @@ const storage = multer.diskStorage({
 });
 
 // File filter — allow images, videos, and audio
-const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedTypes = [
-    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
-    "image/heic", "image/heif", "image/avif", "image/bmp", "image/tiff",
-    "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo",
-    "video/x-matroska", "video/3gpp", "video/mpeg",
-    "audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/aac",
-    "audio/x-m4a", "audio/mp4", "audio/webm",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "image/heic",
+    "image/heif",
+    "image/avif",
+    "image/bmp",
+    "image/tiff",
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
+    "video/x-msvideo",
+    "video/x-matroska",
+    "video/3gpp",
+    "video/mpeg",
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/wav",
+    "audio/ogg",
+    "audio/aac",
+    "audio/x-m4a",
+    "audio/mp4",
+    "audio/webm",
     "application/octet-stream",
   ];
   const ext = path.extname(file.originalname).toLowerCase();
   const allowedExtensions = [
-    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
-    ".heic", ".heif", ".avif", ".bmp", ".tiff", ".tif",
-    ".mp4", ".mov", ".webm", ".avi", ".mkv", ".3gp", ".mpeg", ".mpg",
-    ".mp3", ".wav", ".ogg", ".aac", ".m4a", ".opus",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".heic",
+    ".heif",
+    ".avif",
+    ".bmp",
+    ".tiff",
+    ".tif",
+    ".mp4",
+    ".mov",
+    ".webm",
+    ".avi",
+    ".mkv",
+    ".3gp",
+    ".mpeg",
+    ".mpg",
+    ".mp3",
+    ".wav",
+    ".ogg",
+    ".aac",
+    ".m4a",
+    ".opus",
   ];
   if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
     cb(null, true);
@@ -64,9 +110,9 @@ const HEIC_EXTS = new Set([".heic", ".heif"]);
 // ─── MOV → MP4 transcoding (for cross-browser compatibility) ─────────────────
 const MOV_EXTS = new Set([".mov"]);
 
-async function convertIfNeeded(file: Express.Multer.File): Promise<{ 
-  filename: string; 
-  url: string; 
+async function convertIfNeeded(file: Express.Multer.File): Promise<{
+  filename: string;
+  url: string;
   thumbnailUrl?: string;
   duration?: number;
 }> {
@@ -84,7 +130,7 @@ async function convertIfNeeded(file: Express.Multer.File): Promise<{
       // backing store that heic-decode cannot iterate over correctly.
       const arrayBuffer = inputBuffer.buffer.slice(
         inputBuffer.byteOffset,
-        inputBuffer.byteOffset + inputBuffer.byteLength
+        inputBuffer.byteOffset + inputBuffer.byteLength,
       ) as ArrayBuffer;
       const outputBuffer = await heicConvert({
         buffer: arrayBuffer,
@@ -156,7 +202,7 @@ async function convertIfNeeded(file: Express.Multer.File): Promise<{
     try {
       // Generate thumbnail from video (at 1 second mark)
       await generateVideoThumbnail(videoPath, thumbnailPath, 1);
-      
+
       // Get video duration
       let duration: number | undefined;
       try {
@@ -166,11 +212,11 @@ async function convertIfNeeded(file: Express.Multer.File): Promise<{
       }
 
       console.log(`✅ Generated thumbnail for video: ${thumbnailFilename}`);
-      return { 
-        filename: file.filename, 
+      return {
+        filename: file.filename,
         url: `/uploads/${file.filename}`,
         thumbnailUrl: `/uploads/${thumbnailFilename}`,
-        duration
+        duration,
       };
     } catch (err) {
       console.error(`⚠️ Video thumbnail generation failed for ${file.filename}:`, err);
@@ -192,47 +238,54 @@ router.post("/", requireAuth, upload.single("file"), async (req: Request, res: R
   }
   try {
     const { filename, url, thumbnailUrl, duration } = await convertIfNeeded(req.file);
-    res.json({ 
-      ok: true, 
-      url, 
-      filename, 
+    res.json({
+      ok: true,
+      url,
+      filename,
       thumbnailUrl,
       duration,
-      originalName: req.file.originalname, 
-      size: req.file.size, 
-      mimetype: req.file.mimetype 
+      originalName: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
     });
-  } catch (err: any) {
-    res.status(500).json({ ok: false, error: err.message || "Upload processing failed" });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Upload processing failed";
+    res.status(500).json({ ok: false, error: message });
   }
 });
 
 /** POST /api/upload/multiple — Upload multiple files (admin only) */
-router.post("/multiple", requireAuth, upload.array("files", 20), async (req: Request, res: Response) => {
-  const files = req.files as Express.Multer.File[];
-  if (!files || files.length === 0) {
-    res.status(400).json({ ok: false, error: "No files uploaded" });
-    return;
-  }
-  try {
-    const results = await Promise.all(
-      files.map(async (f) => {
-        const { filename, url, thumbnailUrl, duration } = await convertIfNeeded(f);
-        return { 
-          url, 
-          filename, 
-          thumbnailUrl,
-          duration,
-          originalName: f.originalname, 
-          size: f.size, 
-          mimetype: f.mimetype 
-        };
-      })
-    );
-    res.json({ ok: true, files: results });
-  } catch (err: any) {
-    res.status(500).json({ ok: false, error: err.message || "Upload processing failed" });
-  }
-});
+router.post(
+  "/multiple",
+  requireAuth,
+  upload.array("files", 20),
+  async (req: Request, res: Response) => {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      res.status(400).json({ ok: false, error: "No files uploaded" });
+      return;
+    }
+    try {
+      const results = await Promise.all(
+        files.map(async (f) => {
+          const { filename, url, thumbnailUrl, duration } = await convertIfNeeded(f);
+          return {
+            url,
+            filename,
+            thumbnailUrl,
+            duration,
+            originalName: f.originalname,
+            size: f.size,
+            mimetype: f.mimetype,
+          };
+        }),
+      );
+      res.json({ ok: true, files: results });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Upload processing failed";
+      res.status(500).json({ ok: false, error: message });
+    }
+  },
+);
 
 export default router;

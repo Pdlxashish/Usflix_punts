@@ -82,12 +82,22 @@ export function AdminSubNavLayout<T extends string>({
   );
 }
 
-export function AdminSectionCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+export function AdminSectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="bg-card/50 border border-border/60 rounded-xl p-4 sm:p-6 space-y-4 min-w-0 overflow-hidden">
       <div className="min-w-0">
         <h3 className="font-display text-base sm:text-lg break-words">{title}</h3>
-        {description && <p className="text-sm text-muted-foreground mt-1 break-words">{description}</p>}
+        {description && (
+          <p className="text-sm text-muted-foreground mt-1 break-words">{description}</p>
+        )}
       </div>
       <div className="min-w-0 space-y-4">{children}</div>
     </div>

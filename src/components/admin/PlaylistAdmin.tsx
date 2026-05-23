@@ -2,7 +2,18 @@
  * Admin panel — manage playlist songs
  */
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, X, AlertCircle, Check, Music, Heart, Sparkles, ExternalLink } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  AlertCircle,
+  Check,
+  Music,
+  Heart,
+  Sparkles,
+  ExternalLink,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 
@@ -131,9 +142,7 @@ export function PlaylistAdmin() {
     <div className="space-y-6">
       {/* Form */}
       <div className="bg-card/50 border border-border/60 rounded-xl p-5">
-        <h3 className="font-medium text-sm mb-4">
-          {editingId ? "Edit Song" : "Add New Song"}
-        </h3>
+        <h3 className="font-medium text-sm mb-4">{editingId ? "Edit Song" : "Add New Song"}</h3>
 
         {error && (
           <p className="text-sm text-destructive mb-3 flex items-center gap-1">
@@ -145,9 +154,7 @@ export function PlaylistAdmin() {
           {/* Title & Artist */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Song Title *
-              </label>
+              <label className="text-xs text-muted-foreground mb-1 block">Song Title *</label>
               <input
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -156,9 +163,7 @@ export function PlaylistAdmin() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Artist
-              </label>
+              <label className="text-xs text-muted-foreground mb-1 block">Artist</label>
               <input
                 value={form.artist}
                 onChange={(e) => setForm((f) => ({ ...f, artist: e.target.value }))}
@@ -170,9 +175,7 @@ export function PlaylistAdmin() {
 
           {/* URLs */}
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              Spotify URL
-            </label>
+            <label className="text-xs text-muted-foreground mb-1 block">Spotify URL</label>
             <input
               value={form.spotifyUrl}
               onChange={(e) => setForm((f) => ({ ...f, spotifyUrl: e.target.value }))}
@@ -185,9 +188,7 @@ export function PlaylistAdmin() {
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              YouTube URL
-            </label>
+            <label className="text-xs text-muted-foreground mb-1 block">YouTube URL</label>
             <input
               value={form.youtubeUrl}
               onChange={(e) => setForm((f) => ({ ...f, youtubeUrl: e.target.value }))}
@@ -201,9 +202,7 @@ export function PlaylistAdmin() {
 
           {/* Memory note */}
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              Memory Note
-            </label>
+            <label className="text-xs text-muted-foreground mb-1 block">Memory Note</label>
             <textarea
               value={form.memoryNote}
               onChange={(e) => setForm((f) => ({ ...f, memoryNote: e.target.value }))}
@@ -221,7 +220,17 @@ export function PlaylistAdmin() {
             disabled={saving}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : editingId ? <><Check className="h-4 w-4" /> Save</> : <><Plus className="h-4 w-4" /> Add</>}
+            {saving ? (
+              "Saving..."
+            ) : editingId ? (
+              <>
+                <Check className="h-4 w-4" /> Save
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Add
+              </>
+            )}
           </button>
           {editingId && (
             <button
@@ -259,8 +268,8 @@ export function PlaylistAdmin() {
                   s.isOurSong
                     ? "border-primary/40"
                     : s.isSongOfDay
-                    ? "border-accent/40"
-                    : "border-border/40"
+                      ? "border-accent/40"
+                      : "border-border/40"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -270,9 +279,7 @@ export function PlaylistAdmin() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{s.title}</p>
                         {s.artist && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {s.artist}
-                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{s.artist}</p>
                         )}
                       </div>
                       <div className="flex gap-1 shrink-0">
@@ -289,9 +296,7 @@ export function PlaylistAdmin() {
                       </div>
                     </div>
                     {s.memoryNote && (
-                      <p className="text-xs text-muted-foreground italic mb-2">
-                        "{s.memoryNote}"
-                      </p>
+                      <p className="text-xs text-muted-foreground italic mb-2">"{s.memoryNote}"</p>
                     )}
                     <div className="flex flex-wrap gap-2 text-xs">
                       {s.spotifyUrl && (

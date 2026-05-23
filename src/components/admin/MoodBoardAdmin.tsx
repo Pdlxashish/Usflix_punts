@@ -33,7 +33,9 @@ export function MoodBoardAdmin() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -86,7 +88,9 @@ export function MoodBoardAdmin() {
             )}
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium">{uploading ? "Uploading..." : "Click to upload photos"}</p>
+            <p className="text-sm font-medium">
+              {uploading ? "Uploading..." : "Click to upload photos"}
+            </p>
             <p className="text-xs text-muted-foreground mt-1">Select multiple photos at once</p>
           </div>
           <input
@@ -115,12 +119,17 @@ export function MoodBoardAdmin() {
         ) : photos.length === 0 ? (
           <div className="text-center py-12">
             <Image className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground italic">No photos yet. Upload some above.</p>
+            <p className="text-sm text-muted-foreground italic">
+              No photos yet. Upload some above.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {photos.map((p) => (
-              <div key={p.id} className="relative group aspect-square rounded-xl overflow-hidden border border-border/40">
+              <div
+                key={p.id}
+                className="relative group aspect-square rounded-xl overflow-hidden border border-border/40"
+              >
                 <img
                   src={getMediaUrl(p.imageUrl)}
                   alt={p.alt || "Mood board photo"}

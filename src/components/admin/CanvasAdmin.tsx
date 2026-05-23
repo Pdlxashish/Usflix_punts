@@ -75,8 +75,9 @@ export function CanvasAdmin() {
           <strong>About Shared Canvas:</strong>
         </p>
         <p className="text-sm text-muted-foreground">
-          The shared canvas allows you and your partner to draw together. Only one canvas can be active at a time.
-          Drawings are automatically saved as you draw. You can view saved canvases here and switch between them.
+          The shared canvas allows you and your partner to draw together. Only one canvas can be
+          active at a time. Drawings are automatically saved as you draw. You can view saved
+          canvases here and switch between them.
         </p>
       </div>
 
@@ -104,9 +105,7 @@ export function CanvasAdmin() {
           </div>
         ) : canvases.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-sm text-muted-foreground italic mb-2">
-              No saved canvases yet.
-            </p>
+            <p className="text-sm text-muted-foreground italic mb-2">No saved canvases yet.</p>
             <p className="text-xs text-muted-foreground">
               Start drawing on the homepage to create your first canvas!
             </p>
@@ -116,7 +115,7 @@ export function CanvasAdmin() {
             {canvases.map((canvas) => {
               const pathCount = getPathCount(canvas.drawingData);
               const date = new Date(canvas.createdAt).toLocaleDateString();
-              
+
               return (
                 <div
                   key={canvas.id}

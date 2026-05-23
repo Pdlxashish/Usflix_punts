@@ -17,13 +17,10 @@ function resolveBackendUrl(): string {
     return import.meta.env.VITE_API_URL.replace(/\/$/, ""); // strip trailing slash
   }
 
-  // Production web build served from same domain — use relative URLs
-  if (import.meta.env.PROD) {
-    return "";
-  }
-
-  // Local dev fallback
-  return "http://localhost:3001";
+  // In both dev and prod web builds, use relative URLs so requests go through
+  // the Vite proxy (dev) or same-origin backend (prod). This ensures cookies
+  // are sent correctly — cross-origin requests break SameSite cookie policy.
+  return "";
 }
 
 export const BACKEND_URL = resolveBackendUrl();
@@ -84,7 +81,7 @@ function apiPath(endpoint: string): string {
 export const api = {
   async postSafe<T extends ApiErrorBody>(
     endpoint: string,
-    data?: unknown
+    data?: unknown,
   ): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
     const response = await fetch(apiPath(endpoint), {
       method: "POST",

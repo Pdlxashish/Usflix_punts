@@ -3,7 +3,20 @@
  * Shows Hero, ContentRows, TimeTogether, and StoryContinues sections
  */
 import { useState, useEffect, useMemo, useRef, memo } from "react";
-import { Eye, EyeOff, ExternalLink, Maximize2, Minimize2, Heart, Calendar, Play, Camera, Sparkles, ChevronDown, RefreshCw } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Maximize2,
+  Minimize2,
+  Heart,
+  Calendar,
+  Play,
+  Camera,
+  Sparkles,
+  ChevronDown,
+  RefreshCw,
+} from "lucide-react";
 import { useBranding } from "@/context/branding";
 import { useContent } from "@/context/content";
 import { getMediaUrl } from "@/lib/api";
@@ -44,9 +57,10 @@ const MiniHero = memo(function MiniHero() {
   }, [heroBanners.length]);
 
   // Get animation class based on branding setting
-  const animationClass = branding.heroAnimation !== "none" 
-    ? `motion-safe:animate-[${branding.heroAnimation}_24s_ease-in-out_infinite_alternate]`
-    : "";
+  const animationClass =
+    branding.heroAnimation !== "none"
+      ? `motion-safe:animate-[${branding.heroAnimation}_24s_ease-in-out_infinite_alternate]`
+      : "";
 
   return (
     <div className="relative h-40 w-full overflow-hidden bg-black rounded-t-lg">
@@ -75,10 +89,10 @@ const MiniHero = memo(function MiniHero() {
           )}
         </div>
       )}
-      
+
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-      
+
       {/* Content */}
       <div className="relative z-10 h-full flex items-end p-4">
         <div className="w-full">
@@ -90,7 +104,7 @@ const MiniHero = memo(function MiniHero() {
           {subtitle && (
             <p className="text-[9px] text-white/70 line-clamp-2 mt-1 leading-relaxed">{subtitle}</p>
           )}
-          
+
           {/* Carousel indicators */}
           {heroBanners.length > 1 && (
             <div className="flex gap-1.5 mt-2.5">
@@ -106,7 +120,7 @@ const MiniHero = memo(function MiniHero() {
           )}
         </div>
       </div>
-      
+
       {/* Scroll indicator */}
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10">
         <ChevronDown className="h-2.5 w-2.5 text-white/40 animate-bounce" />
@@ -116,7 +130,13 @@ const MiniHero = memo(function MiniHero() {
 });
 
 // Mini Content Row Component
-const MiniContentRow = memo(function MiniContentRow({ title, items }: { title: string; items: MediaItem[] }) {
+const MiniContentRow = memo(function MiniContentRow({
+  title,
+  items,
+}: {
+  title: string;
+  items: MediaItem[];
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   if (items.length === 0) return null;
@@ -127,10 +147,7 @@ const MiniContentRow = memo(function MiniContentRow({ title, items }: { title: s
         <h4 className="font-display text-sm text-foreground">{title}</h4>
         <span className="text-[9px] text-muted-foreground">{items.length}</span>
       </div>
-      <div
-        ref={scrollRef}
-        className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pb-1"
-      >
+      <div ref={scrollRef} className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pb-1">
         {items.slice(0, 8).map((item) => (
           <div
             key={item.id}
@@ -142,7 +159,7 @@ const MiniContentRow = memo(function MiniContentRow({ title, items }: { title: s
                 alt={item.title}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                 onError={(e) => {
-                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.style.display = "none";
                 }}
               />
             ) : (
@@ -152,7 +169,9 @@ const MiniContentRow = memo(function MiniContentRow({ title, items }: { title: s
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="absolute inset-x-0 bottom-0 p-1.5 translate-y-1 group-hover:translate-y-0 transition-transform">
-              <p className="text-[7px] text-primary uppercase tracking-wider line-clamp-1">{item.category}</p>
+              <p className="text-[7px] text-primary uppercase tracking-wider line-clamp-1">
+                {item.category}
+              </p>
               <p className="text-[9px] font-medium text-foreground line-clamp-1">{item.title}</p>
             </div>
           </div>
@@ -173,23 +192,36 @@ const MiniTimeTogether = memo(function MiniTimeTogether() {
       const now = new Date();
       const totalMs = Math.max(0, now.getTime() - since.getTime());
       const totalDays = Math.floor(totalMs / 86400000);
-      
+
       let years = now.getFullYear() - since.getFullYear();
       let months = now.getMonth() - since.getMonth();
-      if (months < 0) { years--; months += 12; }
-      if (now.getDate() < since.getDate()) { months--; if (months < 0) { years--; months += 11; } }
-      
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+      if (now.getDate() < since.getDate()) {
+        months--;
+        if (months < 0) {
+          years--;
+          months += 11;
+        }
+      }
+
       const days = totalDays % 30;
       setTime({ years, months, days, totalDays });
     };
-    
+
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, [branding.relationshipStartDate]);
 
   const since = new Date(branding.relationshipStartDate);
-  const sinceLabel = since.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const sinceLabel = since.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <div className="py-5 px-4 relative">
@@ -200,7 +232,7 @@ const MiniTimeTogether = memo(function MiniTimeTogether() {
           <Calendar className="h-2.5 w-2.5" />
           Since {sinceLabel} · {time.totalDays.toLocaleString()} days
         </p>
-        
+
         <div className="mt-4 grid grid-cols-3 gap-2">
           {[
             ["Years", time.years],
@@ -212,7 +244,9 @@ const MiniTimeTogether = memo(function MiniTimeTogether() {
               className="bg-card/60 border border-border/60 rounded-lg py-2.5 px-1.5"
             >
               <p className="font-display text-xl text-foreground tabular-nums">{value as number}</p>
-              <p className="text-[8px] uppercase tracking-wider text-muted-foreground">{label as string}</p>
+              <p className="text-[8px] uppercase tracking-wider text-muted-foreground">
+                {label as string}
+              </p>
             </div>
           ))}
         </div>
@@ -227,16 +261,20 @@ const MiniStoryContinues = memo(function MiniStoryContinues() {
 
   const stats = useMemo(() => {
     const albumCount = collections.length;
-    const photoCount = mediaItems.filter(item => item.type === 'photo').length;
-    const videoCount = mediaItems.filter(item => item.type === 'video').length;
+    const photoCount = mediaItems.filter((item) => item.type === "photo").length;
+    const videoCount = mediaItems.filter((item) => item.type === "video").length;
 
     return { albums: albumCount, photos: photoCount, videos: videoCount };
   }, [collections, mediaItems]);
 
   const highlights = [
-    { icon: Heart, label: `${stats.albums} Album${stats.albums !== 1 ? 's' : ''}` },
-    { icon: Camera, label: `${stats.photos}+ Photo${stats.photos !== 1 ? 's' : ''}` },
-    { icon: Sparkles, label: stats.videos > 0 ? `${stats.videos} Video${stats.videos !== 1 ? 's' : ''}` : "Every Moment" },
+    { icon: Heart, label: `${stats.albums} Album${stats.albums !== 1 ? "s" : ""}` },
+    { icon: Camera, label: `${stats.photos}+ Photo${stats.photos !== 1 ? "s" : ""}` },
+    {
+      icon: Sparkles,
+      label:
+        stats.videos > 0 ? `${stats.videos} Video${stats.videos !== 1 ? "s" : ""}` : "Every Moment",
+    },
   ];
 
   return (
@@ -245,17 +283,21 @@ const MiniStoryContinues = memo(function MiniStoryContinues() {
         <Heart className="h-6 w-6 mx-auto fill-primary text-primary" />
       </div>
       <h4 className="font-display text-base leading-tight">
-        Our Story<br />
+        Our Story
+        <br />
         <span className="text-primary italic">Continues</span>
         <span className="text-primary">…</span>
       </h4>
       <p className="text-[9px] text-muted-foreground mt-2 leading-relaxed">
         Every day brings new moments to treasure
       </p>
-      
+
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         {highlights.map(({ icon: Icon, label }) => (
-          <div key={label} className="flex items-center gap-2 bg-card/50 border border-border/50 rounded-full px-3 py-1.5">
+          <div
+            key={label}
+            className="flex items-center gap-2 bg-card/50 border border-border/50 rounded-full px-3 py-1.5"
+          >
             <Icon className="h-2.5 w-2.5 text-primary" />
             <p className="text-[9px] font-medium text-foreground">{label}</p>
           </div>
@@ -279,7 +321,7 @@ export function LivePreview({ mediaItems }: LivePreviewProps) {
 
   // Build category rows
   const browseRows = useMemo(() => {
-    const allCategories = Array.from(new Set(mediaItems.map(m => m.category).filter(Boolean)));
+    const allCategories = Array.from(new Set(mediaItems.map((m) => m.category).filter(Boolean)));
     return allCategories
       .map((cat) => ({
         title: cat,
@@ -345,9 +387,9 @@ export function LivePreview({ mediaItems }: LivePreviewProps) {
       </div>
 
       {/* Preview Content - Scrollable */}
-      <div 
-        className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent hover:scrollbar-thumb-primary/40" 
-        style={{ maxHeight: isExpanded ? 'calc(100vh - 140px)' : '580px' }}
+      <div
+        className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent hover:scrollbar-thumb-primary/40"
+        style={{ maxHeight: isExpanded ? "calc(100vh - 140px)" : "580px" }}
       >
         {/* Hero Section */}
         <MiniHero />
@@ -378,7 +420,8 @@ export function LivePreview({ mediaItems }: LivePreviewProps) {
       {/* Footer Info */}
       <div className="border-t border-border px-4 py-2.5 bg-card/95 backdrop-blur rounded-b-xl shrink-0">
         <p className="text-[10px] text-center text-muted-foreground">
-          {mediaItems.length} total memories · {collections.length} collections · Updates automatically
+          {mediaItems.length} total memories · {collections.length} collections · Updates
+          automatically
         </p>
       </div>
     </div>
