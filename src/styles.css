@@ -567,3 +567,16 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .birthday-confetti {
   animation: birthday-confetti-fall 4s ease-in forwards;
 }
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}

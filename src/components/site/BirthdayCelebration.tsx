@@ -2,7 +2,7 @@
  * Birthday countdown, celebration mode, and gentle reminders.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, BellRing, Cake, Gift, PartyPopper } from "lucide-react";
+import { Bell, BellRing, Cake, Gift, PartyPopper, X } from "lucide-react";
 import { useProfile, type Profile } from "@/context/profile";
 import { useHeartRainfall } from "@/context/heartRainfall";
 import { useToast } from "@/components/ui/Toast";
@@ -20,6 +20,7 @@ import {
 
 const STORAGE_REMINDERS = "usflix_birthday_reminders";
 const STORAGE_NOTIFIED = "usflix_birthday_notified";
+const STORAGE_BIRTHDAY_MODAL = "usflix_birthday_modal_shown";
 
 function avatarShapeClass(shape?: string | null): string {
   if (shape === "circle") return "rounded-full";
@@ -208,9 +209,14 @@ function BirthdayCountdownCard({ entry, now }: { entry: ProfileBirthdayInfo; now
       </div>
 
       {entry.isToday ? (
-        <p className="mt-8 text-center font-display italic text-xl text-primary motion-safe:animate-pulse">
-          The countdown is zero — time to celebrate! 🎉
-        </p>
+        <div className="mt-8 text-center">
+          <p className="font-display text-4xl sm:text-5xl md:text-6xl text-primary motion-safe:animate-bounce">
+            🎉 Happy Birthday! 🎂
+          </p>
+          <p className="mt-4 text-lg text-muted-foreground italic">
+            Wishing you the most amazing day filled with love and joy! ✨
+          </p>
+        </div>
       ) : (
         <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <CountdownCell label="Days" value={countdown.days} highlight={urgent} />
@@ -254,6 +260,108 @@ function ConfettiBurst() {
   );
 }
 
+function BirthdayGreetingModal({ 
+  entry, 
+  onClose 
+}: { 
+  entry: ProfileBirthdayInfo; 
+  onClose: () => void;
+}) {
+  const { triggerHeartBurst } = useHeartRainfall();
+
+  useEffect(() => {
+    // Trigger confetti when modal opens
+    const timer = setTimeout(() => {
+      triggerHeartBurst({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [triggerHeartBurst]);
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+      onClick={onClose}
+    >
+      <div 
+        className="relative max-w-2xl w-full bg-gradient-to-br from-primary/20 via-card to-card/80 rounded-3xl border-2 border-primary/50 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/40 transition-all"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        {/* Floating decorations */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {Array.from({ length: 20 }, (_, i) => (
+            <span
+              key={i}
+              className="absolute text-2xl opacity-60 motion-safe:animate-bounce"
+              style={{
+                left: `${(i * 11) % 100}%`,
+                top: `${(i * 17) % 100}%`,
+                animationDelay: `${(i * 0.2) % 3}s`,
+                animationDuration: `${2 + (i % 3)}s`,
+              }}
+            >
+              {i % 4 === 0 ? "🎈" : i % 4 === 1 ? "🎉" : i % 4 === 2 ? "🎂" : "✨"}
+            </span>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="relative p-8 sm:p-12 text-center">
+          {/* Profile Avatar */}
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <ProfileAvatar profile={entry.profile} size="lg" />
+              <span className="absolute -top-2 -right-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground motion-safe:animate-spin-slow">
+                <PartyPopper className="h-6 w-6" />
+              </span>
+            </div>
+          </div>
+
+          {/* Birthday Message */}
+          <h2 className="font-display text-4xl sm:text-5xl md:text-6xl text-primary mb-4 motion-safe:animate-bounce">
+            🎉 Happy Birthday! 🎂
+          </h2>
+          
+          <p className="font-display text-3xl sm:text-4xl mb-4">
+            {entry.profile.name}
+          </p>
+
+          {entry.turningAge != null && (
+            <p className="text-xl sm:text-2xl text-muted-foreground mb-6">
+              Turning {entry.turningAge} today! 🎈
+            </p>
+          )}
+
+          <div className="max-w-md mx-auto space-y-4 text-lg text-muted-foreground">
+            <p className="italic">
+              Wishing you a day filled with love, laughter, and unforgettable moments! ✨
+            </p>
+            <p>
+              May this year bring you endless joy, amazing adventures, and all the happiness you deserve! 💕
+            </p>
+          </div>
+
+          {/* Celebrate Button */}
+          <button
+            onClick={onClose}
+            className="mt-8 px-8 py-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-display text-lg transition-all hover:scale-105 active:scale-95 shadow-lg"
+          >
+            Let's Celebrate! 🎊
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function BirthdayCelebration() {
   const { profiles } = useProfile();
   const { triggerHeartBurst, triggerHeartRainfall } = useHeartRainfall();
@@ -263,7 +371,10 @@ export function BirthdayCelebration() {
   const [notifyPermission, setNotifyPermission] = useState<NotificationPermission | "unsupported">(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
+  const [showBirthdayModal, setShowBirthdayModal] = useState(false);
+  const [birthdayModalEntry, setBirthdayModalEntry] = useState<ProfileBirthdayInfo | null>(null);
   const todayRainTriggered = useRef(false);
+  const modalShownRef = useRef(false);
 
   const entries = useMemo(
     () =>
@@ -291,6 +402,35 @@ export function BirthdayCelebration() {
     todayRainTriggered.current = true;
     triggerHeartRainfall();
   }, [anyToday, triggerHeartRainfall]);
+
+  // Show birthday modal on page load if it's someone's birthday
+  useEffect(() => {
+    if (!anyToday || modalShownRef.current) return;
+    
+    const todayEntry = entries.find((e) => e.isToday);
+    if (!todayEntry) return;
+
+    // Check if modal was already shown today
+    const today = new Date().toDateString();
+    const lastShown = localStorage.getItem(`${STORAGE_BIRTHDAY_MODAL}_${todayEntry.profile.id}`);
+    
+    if (lastShown === today) return;
+
+    // Show modal after a short delay
+    const timer = setTimeout(() => {
+      setBirthdayModalEntry(todayEntry);
+      setShowBirthdayModal(true);
+      modalShownRef.current = true;
+      localStorage.setItem(`${STORAGE_BIRTHDAY_MODAL}_${todayEntry.profile.id}`, today);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [anyToday, entries]);
+
+  const handleCloseBirthdayModal = () => {
+    setShowBirthdayModal(false);
+    setBirthdayModalEntry(null);
+  };
 
   const runReminders = useCallback(() => {
     if (!remindersOn) return;
@@ -349,7 +489,16 @@ export function BirthdayCelebration() {
   if (entries.length === 0) return null;
 
   return (
-    <section className="relative py-20 sm:py-24 px-4 sm:px-6 lg:px-12 overflow-hidden">
+    <>
+      {/* Birthday Greeting Modal */}
+      {showBirthdayModal && birthdayModalEntry && (
+        <BirthdayGreetingModal 
+          entry={birthdayModalEntry} 
+          onClose={handleCloseBirthdayModal}
+        />
+      )}
+
+      <section className="relative py-20 sm:py-24 px-4 sm:px-6 lg:px-12 overflow-hidden">
       <div
         className="absolute inset-0 -z-10 pointer-events-none"
         style={{
@@ -421,5 +570,6 @@ export function BirthdayCelebration() {
         </p>
       </div>
     </section>
+    </>
   );
 }
