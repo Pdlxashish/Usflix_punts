@@ -1,12 +1,21 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "memory-flix-for-us",
+  "version": "1.0.0",
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "engines": {
+    "node": ">=20.19 <25",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "vite dev",
-    "dev:api": "cd backend && npm run dev",
+    "dev:api": "npm --prefix backend run dev",
+    "typecheck": "tsc --noEmit",
     "build": "vite build",
+    "build:api": "npm --prefix backend run build",
+    "build:all": "npm run build:api && npm run build",
+    "verify": "npm run typecheck && npm run lint && npm run build:all",
     "deploy:worker": "npm run build && wrangler deploy",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",

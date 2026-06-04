@@ -132,7 +132,7 @@ export function WeatherAdmin() {
     }
   };
 
-  const useCity = (city: (typeof POPULAR_CITIES)[0]) => {
+  const applyCity = (city: (typeof POPULAR_CITIES)[0]) => {
     setForm({
       ...form,
       locationName: city.name,
@@ -232,7 +232,7 @@ export function WeatherAdmin() {
               {POPULAR_CITIES.map((city) => (
                 <button
                   key={city.name}
-                  onClick={() => useCity(city)}
+                  onClick={() => applyCity(city)}
                   className="text-xs px-3 py-1.5 rounded-md bg-input hover:bg-card border border-border transition-colors"
                 >
                   {city.name}

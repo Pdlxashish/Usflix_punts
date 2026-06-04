@@ -138,7 +138,7 @@ export function GreetingsAdmin() {
     }
   };
 
-  const useSuggestion = (msg: string) => {
+  const applySuggestion = (msg: string) => {
     setForm((f) => ({ ...f, message: msg }));
   };
 
@@ -210,7 +210,7 @@ export function GreetingsAdmin() {
               (msg, i) => (
                 <button
                   key={i}
-                  onClick={() => useSuggestion(msg)}
+                  onClick={() => applySuggestion(msg)}
                   className="text-xs px-3 py-1.5 rounded-md bg-input hover:bg-card border border-border transition-colors"
                 >
                   {msg}

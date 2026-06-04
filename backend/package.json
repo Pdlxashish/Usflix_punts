@@ -3,11 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.19 <25",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit",
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "tsx src/db/seed.ts",
+    "check:data": "tsx scripts/check-data.ts",
+    "convert:heic": "node convert-heic.mjs",
     "regenerate-thumbnails": "tsx src/scripts/regenerate-thumbnails.ts"
   },
   "dependencies": {

@@ -177,7 +177,7 @@ router.get("/status", async (_req: Request, res: Response) => {
 
     let notifyCloser = false;
     let closerByKm = 0;
-    let previousDistanceKm: number | null = snapRows[0]?.distance_km ?? null;
+    const previousDistanceKm: number | null = snapRows[0]?.distance_km ?? null;
     let baseline = snapRows[0]?.notify_baseline_km ?? distanceKm;
 
     const nearby = distanceKm <= NEARBY_THRESHOLD_KM;
