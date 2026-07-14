@@ -2,23 +2,18 @@
  * Distance Between Us — map, live distance, proximity alerts, travel time.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MapPin, Navigation, Heart, Bell, Loader2, RefreshCw, AlertCircle, Clock, Car } from "lucide-react";
+import { MapPin, Navigation, Heart, Bell, Loader2, RefreshCw, AlertCircle, Clock, Car, Satellite } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useProfile } from "@/context/profile";
 import { useToast } from "@/components/ui/Toast";
+import { useLiveLocation } from "@/hooks/useLiveLocation";
 import {
   fetchLocationStatus,
-  fetchNetworkLocation,
   fetchTravelEstimate,
   formatTravelMinutes,
   getLocationAccessInfo,
-  hasLocationConsent,
   NEARBY_THRESHOLD_KM,
-  resolveDeviceLocation,
-  setLocationConsent,
-  shareProfileLocation,
-  startLocationWatch,
   type LocationStatus,
   type PartnerLocation,
   type TravelEstimate,
@@ -80,23 +75,45 @@ export function DistanceBetween() {
 
   const [status, setStatus] = useState<LocationStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sharing, setSharing] = useState(false);
-  const [consent, setConsent] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [lastShareSource, setLastShareSource] = useState<string | null>(null);
   const [displayDistance, setDisplayDistance] = useState(0);
   const [travel, setTravel] = useState<TravelEstimate | null>(null);
   const [pulseCloser, setPulseCloser] = useState(false);
   const [pulseNearby, setPulseNearby] = useState(false);
-  const [showNetworkFallback, setShowNetworkFallback] = useState(false);
   const lastNotifyAtRef = useRef(0);
   const locationAccess = getLocationAccessInfo();
   const gpsHint = locationAccess.requirementMessage;
   const gpsReadyHint = locationAccess.readyMessage;
 
+  // Use the new useLiveLocation hook for automatic GPS tracking
+  const liveLocation = useLiveLocation({
+    profileId: activeProfile?.id,
+    enabled: true, // Always enabled when profile is active
+    onLocationUpdate: (location) => {
+      console.log('[DistanceBetween] Live location updated:', location);
+      loadStatus(); // Refresh status when location updates
+    },
+    onError: (error) => {
+      console.error('[DistanceBetween] Live location error:', error);
+      toast.error(error);
+    },
+  });
+
   const loadStatus = useCallback(async () => {
     try {
+      console.log('[Location] Fetching location status from API...');
       const data = await fetchLocationStatus();
+      console.log('[Location] Status received:', {
+        partners: data.partners?.map(p => ({
+          id: p.id,
+          name: p.name,
+          hasLocation: p.hasLocation,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          city: p.city
+        })),
+        distanceKm: data.distanceKm,
+        formatted: data.formatted
+      });
       setStatus(data);
 
       const now = Date.now();
@@ -122,101 +139,42 @@ export function DistanceBetween() {
       }
     } catch (err) {
       setStatus(null);
-      console.error("Location status:", err);
+      console.error("[Location] Failed to load status:", err);
     } finally {
       setLoading(false);
     }
   }, [toast]);
 
-  const shareMyLocation = useCallback(
-    async (useNetworkFallback = false) => {
-      if (!activeProfile) {
-        setLocationError("Choose your profile first (Who's watching?).");
-        return;
-      }
-
-      setSharing(true);
-      setLocationError(null);
-      setShowNetworkFallback(false);
-
-      try {
-        const location = useNetworkFallback
-          ? await fetchNetworkLocation()
-          : await resolveDeviceLocation({ allowNetworkFallback: false });
-        await shareProfileLocation(activeProfile.id, location);
-        setLocationConsent(true, activeProfile.id);
-        setConsent(true);
-        setLastShareSource(
-          location.source === "gps"
-            ? `GPS (${Math.round(location.accuracy ?? 0)}m accuracy)`
-            : "approximate network (not GPS)"
-        );
-        toast.success(
-          location.source === "gps"
-            ? "Your phone's GPS location is on the map."
-            : "Approximate network location saved (less accurate than GPS)."
-        );
-        await loadStatus();
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Could not get location";
-        setLocationError(message);
-        setShowNetworkFallback(!useNetworkFallback);
-        if (!useNetworkFallback) {
-          setLocationConsent(false, activeProfile.id);
-          setConsent(false);
-        }
-        toast.error(message);
-      } finally {
-        setSharing(false);
-      }
-    },
-    [activeProfile, loadStatus, toast]
-  );
-
+  // Auto-start tracking when profile changes
   useEffect(() => {
-    setConsent(activeProfile ? hasLocationConsent(activeProfile.id) : false);
-  }, [activeProfile?.id]);
+    console.log('[DistanceBetween] Profile changed:', activeProfile?.name, activeProfile?.id);
+    if (activeProfile && liveLocation.hasConsent) {
+      console.log('[DistanceBetween] Profile has consent, starting tracking');
+      liveLocation.startTracking().catch((err) => {
+        console.error('[DistanceBetween] Failed to start tracking:', err);
+      });
+    }
+  }, [activeProfile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Poll for status updates
   useEffect(() => {
     loadStatus();
-    const pollMs = consent && navigator.onLine ? 20_000 : 45_000;
+    const pollMs = liveLocation.isTracking && navigator.onLine ? 20_000 : 45_000;
     const interval = window.setInterval(loadStatus, pollMs);
     return () => window.clearInterval(interval);
-  }, [loadStatus, consent]);
+  }, [loadStatus, liveLocation.isTracking]);
 
+  // Reload when coming back online
   useEffect(() => {
     const onOnline = () => {
       loadStatus();
-      if (consent && activeProfile) shareMyLocation();
+      if (liveLocation.hasConsent && activeProfile) {
+        liveLocation.forceUpdate();
+      }
     };
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
-  }, [consent, activeProfile, loadStatus, shareMyLocation]);
-
-  useEffect(() => {
-    if (!consent || !activeProfile) return;
-
-    shareMyLocation();
-
-    const stopWatch = startLocationWatch(
-      async (location) => {
-        try {
-          await shareProfileLocation(activeProfile.id, location);
-          setLastShareSource("GPS (live)");
-          await loadStatus();
-        } catch {
-          /* ignore transient share errors during watch */
-        }
-      },
-      (msg) => setLocationError(msg)
-    );
-
-    const interval = window.setInterval(shareMyLocation, 5 * 60 * 1000);
-    return () => {
-      stopWatch();
-      window.clearInterval(interval);
-    };
-  }, [consent, activeProfile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [liveLocation.hasConsent, activeProfile, loadStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const target = status?.distanceKm ?? 0;
@@ -360,13 +318,50 @@ export function DistanceBetween() {
       : { value: Math.round(displayDistance * 10) / 10, unit: "km" as const });
 
   const handleEnableLocation = async () => {
+    if (!activeProfile) {
+      toast.error("Choose your profile first (Who's watching?).");
+      return;
+    }
+
+    // Request notification permission
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
       await Notification.requestPermission().catch(() => {});
     }
-    await shareMyLocation();
+
+    // Start tracking with the hook
+    try {
+      await liveLocation.startTracking();
+      toast.success(`GPS tracking enabled for ${activeProfile.name}`);
+    } catch (err) {
+      // Error already handled by the hook
+      console.error('[DistanceBetween] Failed to enable location:', err);
+    }
+  };
+
+  const handleForceUpdate = async () => {
+    try {
+      await liveLocation.forceUpdate();
+      toast.success("Location updated from device GPS");
+      await loadStatus();
+    } catch (err) {
+      // Error already handled by the hook
+      console.error('[DistanceBetween] Force update failed:', err);
+    }
+  };
+
+  const handleRefreshMap = async () => {
+    setLoading(true);
+    await loadStatus();
   };
 
   const pulse = pulseNearby || pulseCloser;
+
+  // Determine the source label
+  const lastShareSource = liveLocation.lastLocation
+    ? liveLocation.lastLocation.source === "gps"
+      ? `Device GPS (${Math.round(liveLocation.accuracy ?? 0)}m accuracy)`
+      : "Network estimate (not GPS)"
+    : null;
 
   return (
     <section className="py-24 px-6 lg:px-12 relative overflow-hidden">
@@ -431,22 +426,12 @@ export function DistanceBetween() {
           </p>
         )}
 
-        {locationError && (
+        {liveLocation.error && (
           <div className="mt-4 mx-auto max-w-md flex flex-col gap-3 text-left text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3">
             <div className="flex items-start gap-2">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>{locationError}</p>
+              <p>{liveLocation.error}</p>
             </div>
-            {showNetworkFallback && (
-              <button
-                type="button"
-                onClick={() => shareMyLocation(true)}
-                disabled={sharing}
-                className="text-xs text-left underline text-muted-foreground hover:text-foreground"
-              >
-                Use approximate network location instead (city-level, not your phone GPS)
-              </button>
-            )}
           </div>
         )}
 
@@ -549,19 +534,46 @@ export function DistanceBetween() {
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           {activeProfile ? (
-            <button
-              type="button"
-              onClick={() => handleEnableLocation()}
-              disabled={sharing}
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-md font-medium hover:bg-primary/90 transition-all shadow-[var(--shadow-glow)] disabled:opacity-50"
-            >
-              {sharing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <>
+              {!liveLocation.isTracking ? (
+                <button
+                  type="button"
+                  onClick={handleEnableLocation}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-md font-medium hover:bg-primary/90 transition-all shadow-[var(--shadow-glow)] disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Satellite className="h-4 w-4" />
+                  )}
+                  Start GPS tracking as {activeProfile.name}
+                </button>
               ) : (
-                <MapPin className="h-4 w-4" />
+                <>
+                  <button
+                    type="button"
+                    onClick={handleForceUpdate}
+                    disabled={loading}
+                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-md font-medium hover:bg-primary/90 transition-all shadow-[var(--shadow-glow)] disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <MapPin className="h-4 w-4" />
+                    )}
+                    Update my location now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => liveLocation.stopTracking()}
+                    className="inline-flex items-center gap-2 px-4 py-3 rounded-md border border-destructive/60 text-sm text-destructive hover:bg-destructive/10"
+                  >
+                    Stop tracking
+                  </button>
+                </>
               )}
-              {consent ? "Update my location" : `Share location as ${activeProfile.name}`}
-            </button>
+            </>
           ) : (
             <a
               href="/profiles"
@@ -573,19 +585,22 @@ export function DistanceBetween() {
 
           <button
             type="button"
-            onClick={() => { setLoading(true); loadStatus(); }}
+            onClick={handleRefreshMap}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-3 rounded-md border border-border/60 text-sm text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-2 px-4 py-3 rounded-md border border-border/60 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh map
           </button>
         </div>
 
-        {consent && lastShareSource && (
+        {liveLocation.isTracking && lastShareSource && (
           <p className="mt-4 text-xs text-muted-foreground flex items-center justify-center gap-2 flex-wrap">
             <Bell className="h-3.5 w-3.5" />
             Last shared via {lastShareSource}
+            {liveLocation.lastUpdate && (
+              <span>· Updated {formatUpdated(liveLocation.lastUpdate.toISOString())}</span>
+            )}
             {navigator.onLine ? " · live GPS when online" : " · waiting for connection"}
           </p>
         )}

@@ -12,6 +12,44 @@ const SAMPLE_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket
 const SAMPLE_VIDEO_2 = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4";
 const SAMPLE_VIDEO_3 = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
 
+/**
+ * Get or create a demo user for seeding
+ * Returns the user_id to use for all seeded content
+ */
+async function getOrCreateDemoUser(): Promise<number> {
+  // Check if demo user already exists
+  const { rows } = await pool.query(
+    "SELECT id FROM users WHERE email = $1",
+    ["demo@usflix.local"]
+  );
+  
+  if (rows.length > 0) {
+    return rows[0].id;
+  }
+  
+  // Create demo user
+  const result = await pool.query(
+    `INSERT INTO users (google_id, email, display_name, profile_picture_url)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (google_id) DO NOTHING
+     RETURNING id`,
+    ["demo-user-google-id", "demo@usflix.local", "Demo User", null]
+  );
+  
+  if (result.rows.length > 0) {
+    console.log("  → Created demo user for seeded content");
+    return result.rows[0].id;
+  }
+  
+  // If INSERT didn't return (due to conflict), fetch the existing user
+  const existingUser = await pool.query(
+    "SELECT id FROM users WHERE google_id = $1",
+    ["demo-user-google-id"]
+  );
+  
+  return existingUser.rows[0].id;
+}
+
 async function seedAdminUsers(): Promise<void> {
   const { rows } = await pool.query("SELECT COUNT(*) as count FROM admin_users");
   if (parseInt(rows[0].count) > 0) return;
@@ -40,7 +78,7 @@ async function seedAdminUsers(): Promise<void> {
   console.log(`  → Seeded admin user "${username}" (password from ADMIN_PASSWORD env var)`);
 }
 
-async function seedCollections(): Promise<void> {
+async function seedCollections(userId: number): Promise<void> {
   const { rows } = await pool.query("SELECT COUNT(*) as count FROM collections");
   if (parseInt(rows[0].count) > 0) return;
 
@@ -56,14 +94,14 @@ async function seedCollections(): Promise<void> {
 
   for (const c of collections) {
     await pool.query(
-      "INSERT INTO collections (id, name, sort_rank) VALUES ($1, $2, $3)",
-      [c.id, c.name, c.sort_rank]
+      "INSERT INTO collections (id, user_id, name, sort_rank) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+      [c.id, userId, c.name, c.sort_rank]
     );
   }
   console.log("  → Seeded collections");
 }
 
-async function seedMediaItems(): Promise<void> {
+async function seedMediaItems(userId: number): Promise<void> {
   const { rows } = await pool.query("SELECT COUNT(*) as count FROM media_items");
   if (parseInt(rows[0].count) > 0) return;
 
@@ -171,9 +209,10 @@ async function seedMediaItems(): Promise<void> {
 
   for (const item of items) {
     await pool.query(
-      `INSERT INTO media_items (id, type, title, year, tagline, description, thumbnail, category, sort_rank, status, video_url, duration, photos)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-      [item.id, item.type, item.title, item.year, item.tagline, item.description,
+      `INSERT INTO media_items (id, user_id, type, title, year, tagline, description, thumbnail, category, sort_rank, status, video_url, duration, photos)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       ON CONFLICT (id) DO NOTHING`,
+      [item.id, userId, item.type, item.title, item.year, item.tagline, item.description,
        item.thumbnail, item.category, item.sort_rank, item.status,
        (item as any).video_url ?? null, (item as any).duration ?? null, item.photos]
     );
@@ -181,14 +220,16 @@ async function seedMediaItems(): Promise<void> {
   console.log("  → Seeded media items");
 }
 
-async function seedBranding(): Promise<void> {
+async function seedBranding(userId: number): Promise<void> {
   const { rows } = await pool.query("SELECT COUNT(*) as count FROM branding");
   if (parseInt(rows[0].count) > 0) return;
 
   await pool.query(
-    `INSERT INTO branding (id, platform_name, hero_tagline, hero_subtitle, footer_text, home_page_title, home_page_description, relationship_start_date)
-     VALUES (1, $1, $2, $3, $4, $5, $6, $7)`,
+    `INSERT INTO branding (user_id, platform_name, hero_tagline, hero_subtitle, footer_text, home_page_title, home_page_description, relationship_start_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (user_id) DO NOTHING`,
     [
+      userId,
       "USFLIX",
       "The Sunset We Watched Forever",
       "Every story we've written together, in one place. Press play and let's remember.",
@@ -201,7 +242,7 @@ async function seedBranding(): Promise<void> {
   console.log("  → Seeded branding config");
 }
 
-async function seedProfiles(): Promise<void> {
+async function seedProfiles(userId: number): Promise<void> {
   const { rows } = await pool.query("SELECT COUNT(*) as count FROM profiles");
   if (parseInt(rows[0].count) > 0) return;
 
@@ -213,22 +254,35 @@ async function seedProfiles(): Promise<void> {
 
   for (const p of profiles) {
     await pool.query(
-      "INSERT INTO profiles (id, name, color) VALUES ($1, $2, $3)",
-      [p.id, p.name, p.color]
+      "INSERT INTO profiles (id, user_id, name, color) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+      [p.id, userId, p.name, p.color]
     );
   }
+  
+  // Link profiles to the demo user in user_profiles junction table
+  for (const p of profiles) {
+    await pool.query(
+      `INSERT INTO user_profiles (user_id, profile_id, is_primary)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, profile_id) DO NOTHING`,
+      [userId, p.id, p.id === "p1"] // Make first profile primary
+    );
+  }
+  
   console.log("  → Seeded profiles");
 }
 
-async function seedHeroBanners(): Promise<void> {
+async function seedHeroBanners(userId: number): Promise<void> {
   const { rows } = await pool.query("SELECT COUNT(*) as count FROM hero_banners");
   if (parseInt(rows[0].count) > 0) return;
 
   await pool.query(
-    `INSERT INTO hero_banners (id, title, subtitle, media_url, type, linked_media_id)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
+    `INSERT INTO hero_banners (id, user_id, title, subtitle, media_url, type, linked_media_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (id) DO NOTHING`,
     [
       "banner-1",
+      userId,
       "Mrs Deactive and Guhiya",
       "Every story we've written together, in one place. Press play and let's remember.",
       "/assets/album-paris.jpg",
@@ -242,16 +296,21 @@ async function seedHeroBanners(): Promise<void> {
 export async function seedDatabase(): Promise<void> {
   console.log("🌱 Seeding database...");
   await seedAdminUsers();
+  
   if (!shouldSeedDemoData()) {
     console.log("  → Skipping demo content (production). Set SEED_DEMO_DATA=true to include samples.");
     console.log("🌱 Seeding complete!");
     return;
   }
-  await seedCollections();
-  await seedMediaItems();
-  await seedBranding();
-  await seedProfiles();
-  await seedHeroBanners();
+  
+  // Get or create demo user for all seeded content
+  const demoUserId = await getOrCreateDemoUser();
+  
+  await seedCollections(demoUserId);
+  await seedMediaItems(demoUserId);
+  await seedBranding(demoUserId);
+  await seedProfiles(demoUserId);
+  await seedHeroBanners(demoUserId);
   console.log("🌱 Seeding complete!");
 }
 

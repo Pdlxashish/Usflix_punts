@@ -11,6 +11,8 @@ import path from "path";
 import fs from "fs";
 import heicConvert from "heic-convert";
 import { requireAuth } from "../middleware/auth.js";
+import { optionalUserAuth } from "../middleware/userAuth.js";
+import { attachSpaceUserId } from "../utils/tenant.js";
 import {
   generateVideoThumbnail,
   isVideoFile,
@@ -26,9 +28,16 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// Configure multer storage
+// Configure multer storage — files land in UPLOAD_DIR/{userId}/ if authenticated
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+  destination: (req, _file, cb) => {
+    const userId = req.spaceUserId ?? req.auth?.userId ?? req.userAuth?.userId;
+    const dir = userId
+      ? path.join(UPLOAD_DIR, String(userId))
+      : UPLOAD_DIR;
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
   filename: (_req, file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     const ext = path.extname(file.originalname).toLowerCase();
@@ -110,24 +119,29 @@ const HEIC_EXTS = new Set([".heic", ".heif"]);
 // ─── MOV → MP4 transcoding (for cross-browser compatibility) ─────────────────
 const MOV_EXTS = new Set([".mov"]);
 
-async function convertIfNeeded(file: Express.Multer.File): Promise<{
+async function convertIfNeeded(
+  file: Express.Multer.File,
+  userId?: number
+): Promise<{
   filename: string;
   url: string;
   thumbnailUrl?: string;
   duration?: number;
 }> {
   const ext = path.extname(file.filename).toLowerCase();
+  // Determine the actual directory this file was saved in
+  const fileDir = file.destination ?? UPLOAD_DIR;
+  // URL prefix based on whether it's in a user subfolder
+  const urlBase = userId ? `/uploads/${userId}` : `/uploads`;
 
   // ── HEIC/HEIF → JPEG ──────────────────────────────────────────────────────
   if (HEIC_EXTS.has(ext)) {
-    const originalPath = path.join(UPLOAD_DIR, file.filename);
+    const originalPath = path.join(fileDir, file.filename);
     const jpegFilename = file.filename.replace(/\.(heic|heif)$/i, ".jpg");
-    const jpegPath = path.join(UPLOAD_DIR, jpegFilename);
+    const jpegPath = path.join(fileDir, jpegFilename);
 
     try {
       const inputBuffer = fs.readFileSync(originalPath);
-      // Copy into a fresh ArrayBuffer — Node's Buffer.buffer is a shared
-      // backing store that heic-decode cannot iterate over correctly.
       const arrayBuffer = inputBuffer.buffer.slice(
         inputBuffer.byteOffset,
         inputBuffer.byteOffset + inputBuffer.byteLength,
@@ -138,154 +152,123 @@ async function convertIfNeeded(file: Express.Multer.File): Promise<{
         quality: 0.9,
       });
       fs.writeFileSync(jpegPath, Buffer.from(outputBuffer));
-      fs.unlinkSync(originalPath); // remove original HEIC
+      fs.unlinkSync(originalPath);
       console.log(`✅ Converted ${file.filename} → ${jpegFilename}`);
-      return { filename: jpegFilename, url: `/uploads/${jpegFilename}` };
+      return { filename: jpegFilename, url: `${urlBase}/${jpegFilename}` };
     } catch (err) {
       console.error(`⚠️ HEIC conversion failed for ${file.filename}:`, err);
-      // Serve original as fallback
-      return { filename: file.filename, url: `/uploads/${file.filename}` };
+      return { filename: file.filename, url: `${urlBase}/${file.filename}` };
     }
   }
 
-  // ── MOV → H.264 MP4 (cross-browser) ──────────────────────────────────────
+  // ── MOV → H.264 MP4 ───────────────────────────────────────────────────────
   if (MOV_EXTS.has(ext)) {
-    const movPath = path.join(UPLOAD_DIR, file.filename);
+    const movPath = path.join(fileDir, file.filename);
     const mp4Filename = file.filename.replace(/\.mov$/i, ".mp4");
-    const mp4Path = path.join(UPLOAD_DIR, mp4Filename);
+    const mp4Path = path.join(fileDir, mp4Filename);
     const thumbnailFilename = mp4Filename.replace(/\.mp4$/, "-thumb.jpg");
-    const thumbnailPath = path.join(UPLOAD_DIR, thumbnailFilename);
+    const thumbnailPath = path.join(fileDir, thumbnailFilename);
 
     let finalFilename = file.filename;
-    let finalUrl = `/uploads/${file.filename}`;
+    let finalUrl = `${urlBase}/${file.filename}`;
 
-    // Transcode MOV → MP4
     try {
       await convertToWebFormat(movPath, mp4Path);
-      fs.unlinkSync(movPath); // remove original MOV after successful transcode
+      fs.unlinkSync(movPath);
       finalFilename = mp4Filename;
-      finalUrl = `/uploads/${mp4Filename}`;
+      finalUrl = `${urlBase}/${mp4Filename}`;
       console.log(`✅ Transcoded ${file.filename} → ${mp4Filename}`);
     } catch (err) {
-      console.error(`⚠️ MOV→MP4 transcode failed for ${file.filename}, serving original:`, err);
-      // Keep original MOV as fallback — Safari can still play it
+      console.error(`⚠️ MOV→MP4 transcode failed:`, err);
     }
 
-    // Generate thumbnail from the final video file
-    const videoForThumb = path.join(UPLOAD_DIR, finalFilename);
+    const videoForThumb = path.join(fileDir, finalFilename);
     let thumbnailUrl: string | undefined;
     let duration: number | undefined;
 
     try {
       await generateVideoThumbnail(videoForThumb, thumbnailPath, 1);
-      thumbnailUrl = `/uploads/${thumbnailFilename}`;
-      console.log(`✅ Generated thumbnail for MOV/MP4: ${thumbnailFilename}`);
+      thumbnailUrl = `${urlBase}/${thumbnailFilename}`;
     } catch (err) {
-      console.error(`⚠️ Thumbnail generation failed for ${finalFilename}:`, err);
+      console.error(`⚠️ Thumbnail generation failed:`, err);
     }
 
     try {
       duration = await getVideoDuration(videoForThumb);
-    } catch (err) {
-      console.warn(`⚠️ Could not get video duration for ${finalFilename}:`, err);
-    }
+    } catch {}
 
     return { filename: finalFilename, url: finalUrl, thumbnailUrl, duration };
   }
 
-  // ── Other video formats — thumbnail only ──────────────────────────────────
+  // ── Other videos — thumbnail only ─────────────────────────────────────────
   if (isVideoFile(file.filename)) {
-    const videoPath = path.join(UPLOAD_DIR, file.filename);
+    const videoPath = path.join(fileDir, file.filename);
     const thumbnailFilename = file.filename.replace(/\.[^.]+$/, "-thumb.jpg");
-    const thumbnailPath = path.join(UPLOAD_DIR, thumbnailFilename);
+    const thumbnailPath = path.join(fileDir, thumbnailFilename);
 
     try {
-      // Generate thumbnail from video (at 1 second mark)
       await generateVideoThumbnail(videoPath, thumbnailPath, 1);
-
-      // Get video duration
       let duration: number | undefined;
-      try {
-        duration = await getVideoDuration(videoPath);
-      } catch (err) {
-        console.warn(`⚠️ Could not get video duration:`, err);
-      }
-
-      console.log(`✅ Generated thumbnail for video: ${thumbnailFilename}`);
+      try { duration = await getVideoDuration(videoPath); } catch {}
       return {
         filename: file.filename,
-        url: `/uploads/${file.filename}`,
-        thumbnailUrl: `/uploads/${thumbnailFilename}`,
+        url: `${urlBase}/${file.filename}`,
+        thumbnailUrl: `${urlBase}/${thumbnailFilename}`,
         duration,
       };
     } catch (err) {
-      console.error(`⚠️ Video thumbnail generation failed for ${file.filename}:`, err);
-      // Return video without thumbnail as fallback
-      return { filename: file.filename, url: `/uploads/${file.filename}` };
+      console.error(`⚠️ Video thumbnail failed:`, err);
+      return { filename: file.filename, url: `${urlBase}/${file.filename}` };
     }
   }
 
-  return { filename: file.filename, url: `/uploads/${file.filename}` };
+  return { filename: file.filename, url: `${urlBase}/${file.filename}` };
 }
 
 const router = Router();
 
-/** POST /api/upload — Upload a single file (admin only) */
-router.post("/", requireAuth, upload.single("file"), async (req: Request, res: Response) => {
+/** POST /api/upload — Upload a single file (admin or authenticated user) */
+router.post("/", optionalUserAuth, attachSpaceUserId, upload.single("file"), async (req: Request, res: Response) => {
+  const userId = req.spaceUserId ?? req.auth?.userId ?? req.userAuth?.userId;
+  if (!userId) {
+    res.status(401).json({ ok: false, error: "Authentication required" });
+    return;
+  }
   if (!req.file) {
     res.status(400).json({ ok: false, error: "No file uploaded" });
     return;
   }
   try {
-    const { filename, url, thumbnailUrl, duration } = await convertIfNeeded(req.file);
-    res.json({
-      ok: true,
-      url,
-      filename,
-      thumbnailUrl,
-      duration,
-      originalName: req.file.originalname,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
-    });
+    const { filename, url, thumbnailUrl, duration } = await convertIfNeeded(req.file, userId);
+    res.json({ ok: true, url, filename, thumbnailUrl, duration,
+      originalName: req.file.originalname, size: req.file.size, mimetype: req.file.mimetype });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Upload processing failed";
     res.status(500).json({ ok: false, error: message });
   }
 });
 
-/** POST /api/upload/multiple — Upload multiple files (admin only) */
-router.post(
-  "/multiple",
-  requireAuth,
-  upload.array("files", 20),
-  async (req: Request, res: Response) => {
-    const files = req.files as Express.Multer.File[];
-    if (!files || files.length === 0) {
-      res.status(400).json({ ok: false, error: "No files uploaded" });
-      return;
-    }
-    try {
-      const results = await Promise.all(
-        files.map(async (f) => {
-          const { filename, url, thumbnailUrl, duration } = await convertIfNeeded(f);
-          return {
-            url,
-            filename,
-            thumbnailUrl,
-            duration,
-            originalName: f.originalname,
-            size: f.size,
-            mimetype: f.mimetype,
-          };
-        }),
-      );
-      res.json({ ok: true, files: results });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Upload processing failed";
-      res.status(500).json({ ok: false, error: message });
-    }
-  },
-);
+/** POST /api/upload/multiple — Upload multiple files (authenticated) */
+router.post("/multiple", requireAuth, attachSpaceUserId, upload.array("files", 20), async (req: Request, res: Response) => {
+  const userId = req.spaceUserId ?? req.auth?.userId ?? req.userAuth?.userId;
+  const files = req.files as Express.Multer.File[];
+  if (!files || files.length === 0) {
+    res.status(400).json({ ok: false, error: "No files uploaded" });
+    return;
+  }
+  try {
+    const results = await Promise.all(
+      files.map(async (f) => {
+        const { filename, url, thumbnailUrl, duration } = await convertIfNeeded(f, userId);
+        return { url, filename, thumbnailUrl, duration,
+          originalName: f.originalname, size: f.size, mimetype: f.mimetype };
+      }),
+    );
+    res.json({ ok: true, files: results });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Upload processing failed";
+    res.status(500).json({ ok: false, error: message });
+  }
+});
 
 export default router;

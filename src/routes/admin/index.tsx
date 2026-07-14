@@ -24,7 +24,7 @@ import {
   Shield,
   Heart,
 } from "lucide-react";
-import { useAuth } from "@/context/auth";
+import { useClerk } from "@clerk/tanstack-react-start";
 import { useContent } from "@/context/content";
 import { CustomizationTab } from "@/components/admin/CustomizationTab";
 import { ProfilesTab } from "@/components/admin/ProfilesTab";
@@ -77,12 +77,12 @@ const ALBUM_SECTIONS: AdminNavSection<AlbumSection>[] = [
 
 export const Route = createFileRoute("/admin/")({
   component: AdminPanel,
-  head: () => ({ meta: [{ title: "Admin — USFLIX" }] }),
+  head: () => ({ meta: [{ title: "Advanced Settings — USFLIX" }] }),
 });
 
 // ─── Main component ───────────────────────────────────────────────────────────
 function AdminPanel() {
-  const { isAuthenticated, username, logout, loading } = useAuth();
+  const { signOut } = useClerk();
   const navigate = useNavigate();
   const {
     collections,
@@ -96,10 +96,8 @@ function AdminPanel() {
   } = useContent();
   const toast = useToast();
 
-  // Auth guard — Req 9 AC1
-  useEffect(() => {
-    if (!loading && !isAuthenticated) navigate({ to: "/admin/login" });
-  }, [isAuthenticated, loading, navigate]);
+  // No authentication check - advanced settings are accessible to anyone with device access
+  // This is appropriate for a personal/couple app where physical device access = authorization
 
   // Tabs
   const [tab, setTab] = useState<
@@ -138,8 +136,6 @@ function AdminPanel() {
     id: string;
     name: string;
   } | null>(null);
-
-  if (!isAuthenticated) return null;
 
   const tabs = [
     { id: "customization" as const, label: "Style", icon: Settings },
@@ -247,21 +243,18 @@ function AdminPanel() {
             to site
           </Link>
           <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm">
-            <span className="text-xs text-muted-foreground">
-              Signed in as <span className="text-foreground">{username}</span>
-            </span>
             <button
               onClick={async () => {
-                await logout();
-                navigate({ to: "/admin/login" });
+                await signOut();
+                navigate({ to: "/" });
               }}
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
             >
-              <LogOut className="h-3 w-3" /> Logout
+              <LogOut className="h-3 w-3" /> Back to Site
             </button>
           </div>
         </div>
-        <h1 className="font-display text-3xl sm:text-4xl md:text-5xl">Admin Panel</h1>
+        <h1 className="font-display text-3xl sm:text-4xl md:text-5xl">Advanced Settings</h1>
       </div>
 
       {/* Tabs — scrollable on mobile, no flex-1 so overflow-x-auto works */}

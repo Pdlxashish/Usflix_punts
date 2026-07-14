@@ -8,7 +8,9 @@ export function isProduction(): boolean {
 
 /** Comma-separated FRONTEND_URL values (e.g. https://app.example.com,capacitor://localhost). */
 export function getAllowedFrontendOrigins(): string[] {
-  const raw = process.env.FRONTEND_URL || "http://localhost:5173";
+  const raw =
+    process.env.FRONTEND_URL ||
+    "http://localhost:5173,http://localhost:8080,https://localhost:8080,https://localhost:5173";
   return raw
     .split(",")
     .map((s) => s.trim())

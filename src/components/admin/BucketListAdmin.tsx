@@ -1,10 +1,12 @@
 /**
  * Admin panel section — manage Bucket List items.
+ * 🔄 Now with REAL-TIME UPDATES via WebSocket!
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, Pencil, Trash2, X, AlertCircle, Check, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
+import { useWebSocketEvent } from "@/context/websocket";
 
 interface BucketListItem {
   id: string;
@@ -43,6 +45,53 @@ export function BucketListAdmin() {
   useEffect(() => {
     load();
   }, []);
+
+  // 🔄 REAL-TIME UPDATE: Listen for partner toggling items
+  useWebSocketEvent("bucketlist:toggled", useCallback((data: any) => {
+    console.log("Bucket list item toggled by partner:", data);
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === data.id
+          ? { ...item, completed: data.completed, completedAt: data.completedAt }
+          : item
+      )
+    );
+    toast.info("Partner updated a bucket list item");
+  }, [toast]));
+
+  // 🔄 REAL-TIME UPDATE: Listen for partner adding items
+  useWebSocketEvent("bucketlist:added", useCallback((data: any) => {
+    console.log("New bucket list item added by partner:", data);
+    setItems((prev) => [...prev, {
+      id: data.id,
+      item: data.item,
+      emoji: data.emoji,
+      completed: data.completed,
+      completedAt: null,
+      sortRank: data.sortRank,
+    }]);
+    toast.info("Partner added a bucket list item");
+  }, [toast]));
+
+  // 🔄 REAL-TIME UPDATE: Listen for partner updating items
+  useWebSocketEvent("bucketlist:updated", useCallback((data: any) => {
+    console.log("Bucket list item updated by partner:", data);
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === data.id
+          ? { ...item, item: data.item, emoji: data.emoji, sortRank: data.sortRank }
+          : item
+      )
+    );
+    toast.info("Partner edited a bucket list item");
+  }, [toast]));
+
+  // 🔄 REAL-TIME UPDATE: Listen for partner deleting items
+  useWebSocketEvent("bucketlist:deleted", useCallback((data: any) => {
+    console.log("Bucket list item deleted by partner:", data);
+    setItems((prev) => prev.filter((item) => item.id !== data.id));
+    toast.info("Partner deleted a bucket list item");
+  }, [toast]));
 
   const startEdit = (i: BucketListItem) => {
     setEditingId(i.id);

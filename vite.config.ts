@@ -21,14 +21,17 @@ export default defineConfig({
       // HTTPS via basic-ssl plugin (empty object satisfies Vite 7 server.https typing)
       ...(useHttps ? { https: {} } : {}),
       host: true,
+      port: 8080, // Set frontend to run on port 8080
       proxy: {
         "/api": {
           target: "http://localhost:3001",
           changeOrigin: true,
+          secure: false,
         },
         "/uploads": {
           target: "http://localhost:3001",
           changeOrigin: true,
+          secure: false,
         },
       },
     },

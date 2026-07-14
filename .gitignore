@@ -34,14 +34,24 @@ dist-ssr
 # Backend
 backend/dist
 backend/uploads
+backend/uploads/**
 backend/.env
-backend/.env.production
-backend/.env.local
+backend/.env.*
+!backend/.env.example
 
 # Frontend
 .env
-.env.production
-.env.local
+.env.*
+!.env.example
+
+# API Keys and Secrets (extra protection)
+**/secrets/
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/credentials.json
+**/service-account*.json
 
 # Docker
 docker-compose.override.yml

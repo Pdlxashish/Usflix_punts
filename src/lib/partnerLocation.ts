@@ -156,59 +156,116 @@ function watchForFirstFix(timeoutMs: number): Promise<GeolocationPosition> {
 /**
  * Read real coordinates from the device GPS chip / OS location service.
  * Does not use IP geolocation unless allowNetworkFallback is true.
+ * 
+ * This function tries multiple strategies to get the most accurate device GPS location:
+ * 1. High accuracy GPS with no cache
+ * 2. Watch position for first fix (often faster on mobile)
+ * 3. Lower accuracy GPS as fallback
+ * 4. Network location if explicitly allowed
  */
 export async function resolveDeviceLocation(options?: {
   allowNetworkFallback?: boolean;
 }): Promise<ResolvedLocation> {
   const allowNetworkFallback = options?.allowNetworkFallback ?? false;
 
+  console.log('[GPS] Requesting device location...', {
+    allowNetworkFallback,
+    canUseGps: canUseGps(),
+    hasGeolocation: !!navigator.geolocation
+  });
+
   if (!navigator.geolocation) {
+    console.error('[GPS] Geolocation API not available');
     if (allowNetworkFallback) return fetchNetworkLocation();
     throw new Error(getGpsRequirementMessage() ?? "Geolocation is not supported.");
   }
 
   if (!canUseGps() && !allowNetworkFallback) {
+    console.error('[GPS] GPS not available (requires HTTPS)');
     throw new Error(getGpsRequirementMessage() ?? "GPS requires HTTPS or localhost.");
   }
 
+  // Strategy 1: Try high-accuracy GPS first (this uses the GPS chip)
   const attempts: PositionOptions[] = [
     { enableHighAccuracy: true, timeout: 35000, maximumAge: 0 },
-    { enableHighAccuracy: false, timeout: 35000, maximumAge: 0 },
-    { enableHighAccuracy: true, timeout: 45000, maximumAge: 15000 },
   ];
 
   let lastErr: unknown;
 
   for (const opts of attempts) {
     try {
+      console.log('[GPS] Attempting getCurrentPosition with options:', opts);
       const pos = await getCurrentPosition(opts);
+      console.log('[GPS] Success! Got position:', {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        source: 'gps'
+      });
       return positionToLocation(pos);
     } catch (err) {
       lastErr = err;
+      console.warn('[GPS] getCurrentPosition failed:', err);
       if (isGeolocationError(err) && err.code === err.PERMISSION_DENIED) {
         throw new Error(geolocationErrorMessage(err));
       }
     }
   }
 
+  // Strategy 2: Try watchPosition for first fix (often faster on phones)
   try {
+    console.log('[GPS] Trying watchPosition for first fix...');
     const pos = await watchForFirstFix(45000);
+    console.log('[GPS] Success via watch! Got position:', {
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+      source: 'gps'
+    });
     return positionToLocation(pos);
   } catch (err) {
     lastErr = err;
+    console.warn('[GPS] watchPosition failed:', err);
     if (isGeolocationError(err) && err.code === err.PERMISSION_DENIED) {
       throw new Error(geolocationErrorMessage(err));
     }
   }
 
+  // Strategy 3: Try lower accuracy as last resort
+  try {
+    console.log('[GPS] Trying low-accuracy fallback...');
+    const pos = await getCurrentPosition({
+      enableHighAccuracy: false,
+      timeout: 35000,
+      maximumAge: 15000
+    });
+    console.log('[GPS] Success with low-accuracy! Got position:', {
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+      source: 'gps'
+    });
+    return positionToLocation(pos);
+  } catch (err) {
+    lastErr = err;
+    console.warn('[GPS] Low-accuracy attempt failed:', err);
+  }
+
+  // Strategy 4: Network fallback if allowed
   if (allowNetworkFallback) {
     try {
-      return await fetchNetworkLocation();
-    } catch {
+      console.log('[GPS] Falling back to network location...');
+      const networkLoc = await fetchNetworkLocation();
+      console.log('[GPS] Network location obtained:', networkLoc);
+      return networkLoc;
+    } catch (err) {
+      console.error('[GPS] Network fallback also failed:', err);
       /* fall through */
     }
   }
 
+  // All strategies failed
+  console.error('[GPS] All location strategies failed');
   if (isGeolocationError(lastErr)) {
     throw new Error(geolocationErrorMessage(lastErr));
   }
@@ -323,9 +380,32 @@ export async function shareProfileLocation(
   }
 }
 
-const WATCH_MIN_INTERVAL_MS = 60_000;
-const WATCH_MIN_MOVE_M = 80;
+const WATCH_MIN_INTERVAL_MS = 30_000; // Reduced from 60s to 30s for more frequent updates
+const WATCH_MIN_MOVE_M = 50; // Reduced from 80m to 50m for more sensitive movement detection
 
+/**
+ * Helper to calculate if user has moved enough to warrant an update
+ */
+function hasMovedEnough(
+  prevLat: number | null,
+  prevLng: number | null,
+  newLat: number,
+  newLng: number,
+  thresholdMeters: number
+): boolean {
+  if (prevLat === null || prevLng === null) return true;
+  const movedKm = haversineKm(prevLat, prevLng, newLat, newLng);
+  return movedKm * 1000 >= thresholdMeters;
+}
+
+/**
+ * Start watching device GPS location with real-time updates.
+ * Uses navigator.geolocation.watchPosition for continuous monitoring.
+ * 
+ * @param onLocation - Callback fired when location updates (after debounce/distance filter)
+ * @param onError - Callback fired on geolocation errors
+ * @returns Cleanup function to stop watching
+ */
 export function startLocationWatch(
   onLocation: (location: ResolvedLocation) => void,
   onError?: (message: string) => void
@@ -336,19 +416,43 @@ export function startLocationWatch(
   let lastLat: number | null = null;
   let lastLng: number | null = null;
 
+  console.log('[LocationWatch] Starting GPS watch with enableHighAccuracy=true');
+
   const watchId = navigator.geolocation.watchPosition(
     (pos) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       const now = Date.now();
 
-      let movedEnough = true;
-      if (lastLat != null && lastLng != null) {
-        const movedKm = haversineKm(lastLat, lastLng, lat, lng);
-        movedEnough = movedKm * 1000 >= WATCH_MIN_MOVE_M;
+      console.log('[LocationWatch] GPS update received:', {
+        latitude: lat,
+        longitude: lng,
+        accuracy: pos.coords.accuracy,
+        timestamp: new Date(pos.timestamp).toISOString()
+      });
+
+      // Check if enough time has passed since last share
+      const timeElapsed = now - lastShareAt;
+      const timeThresholdMet = timeElapsed >= WATCH_MIN_INTERVAL_MS;
+
+      // Check if user has moved enough distance
+      const movedEnough = hasMovedEnough(lastLat, lastLng, lat, lng, WATCH_MIN_MOVE_M);
+
+      // Only update if BOTH conditions are met: time threshold AND movement threshold
+      if (!movedEnough && !timeThresholdMet) {
+        console.log('[LocationWatch] Skipping update - insufficient movement or time:', {
+          movedEnough,
+          timeThresholdMet,
+          timeElapsed: `${Math.round(timeElapsed / 1000)}s`
+        });
+        return;
       }
 
-      if (!movedEnough && now - lastShareAt < WATCH_MIN_INTERVAL_MS) return;
+      console.log('[LocationWatch] Sending location update:', {
+        movedEnough,
+        timeThresholdMet,
+        timeSinceLastShare: `${Math.round(timeElapsed / 1000)}s`
+      });
 
       lastLat = lat;
       lastLng = lng;
@@ -356,11 +460,23 @@ export function startLocationWatch(
 
       onLocation(positionToLocation(pos));
     },
-    (err) => onError?.(geolocationErrorMessage(err)),
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 60000 }
+    (err) => {
+      console.error('[LocationWatch] GPS error:', err);
+      onError?.(geolocationErrorMessage(err));
+    },
+    {
+      enableHighAccuracy: true,  // Use GPS chip, not WiFi/cell tower triangulation
+      maximumAge: 0,              // Don't use cached positions
+      timeout: 60000              // Allow up to 60s to get GPS fix
+    }
   );
 
-  return () => navigator.geolocation.clearWatch(watchId);
+  console.log('[LocationWatch] Watch started with ID:', watchId);
+
+  return () => {
+    console.log('[LocationWatch] Stopping GPS watch:', watchId);
+    navigator.geolocation.clearWatch(watchId);
+  };
 }
 
 /** @deprecated use resolveDeviceLocation */

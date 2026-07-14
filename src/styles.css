@@ -270,9 +270,37 @@ a:not([aria-hidden]) {
   *:not(.animate-love-bomb-charge-pulse):not(.animate-love-bomb-swell):not(.love-bomb-shockwave):not(.love-bomb-fragment):not(.birthday-float):not(.birthday-confetti) {
     transition-duration: min(var(--tw-transition-duration, 300ms), 200ms) !important;
   }
-  /* Promote composited layers for smoother scrolling */
+  /* Promote composited layers for smoother scrolling - LIMITED USE */
   .scroll-row-x {
-    will-change: scroll-position;
+    /* Remove will-change - it causes too many layers */
+    /* will-change: scroll-position; */
+    /* Use containment instead for better performance */
+    contain: layout style paint;
+  }
+  
+  /* Optimize animations for 60fps */
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-safe-transform {
+      will-change: transform;
+    }
+  }
+  
+  /* Reduce backdrop-blur intensity for better performance */
+  .backdrop-blur {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  .backdrop-blur-xl {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  
+  /* Use translate3d for GPU acceleration */
+  .gpu-accelerate {
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
   }
 }
 

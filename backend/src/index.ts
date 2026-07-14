@@ -13,6 +13,7 @@ import compression from "compression";
 import path from "path";
 import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser";
+import { createServer } from "http";
 
 import pool, { testConnection } from "./db/connection.js";
 import { createTables } from "./db/schema.js";
@@ -24,12 +25,11 @@ import {
   productionRequestLogger,
   errorHandler,
   apiLimiter,
-  authLimiter,
   uploadLimiter,
   publicWriteLimiter,
+  isRateLimitDisabled,
 } from "./middleware/security.js";
 
-import authRoutes from "./routes/auth.js";
 import contentRoutes from "./routes/content.js";
 import brandingRoutes from "./routes/branding.js";
 import profilesRoutes from "./routes/profiles.js";
@@ -49,14 +49,29 @@ import playlistRoutes from "./routes/playlist.js";
 import greetingsRoutes from "./routes/greetings.js";
 import weatherRoutes from "./routes/weather.js";
 import canvasRoutes from "./routes/canvas.js";
+import partnerInviteRoutes from "./routes/partner-invite.js";
+import invitationRoutes from "./routes/invitations.js";
+import partnerLinkingRoutes from "./routes/partner-linking.js";
+import sharedMessagesRoutes from "./routes/shared-messages.js";
+import sharedAlbumsRoutes from "./routes/shared-albums.js";
+import coupleActivitiesRoutes from "./routes/couple-activities.js";
+import liveDrawingRoutes from "./routes/live-drawing.js";
+import gpsLocationRoutes from "./routes/gps-location.js";
+import syncDataRoutes from "./routes/sync-data.js";
+import migrateRoutes from "./routes/migrate.js";
+
+import { initializeWebSocket } from "./websocket/server.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-import { isRateLimitDisabled, validateJwtSecret } from "./config/auth.js";
 import { getAllowedFrontendOrigins, validateProductionEnv } from "./config/env.js";
 
-validateJwtSecret();
+// Validate Clerk secret key is present in production
+if (process.env.NODE_ENV === "production" && !process.env.CLERK_SECRET_KEY) {
+  throw new Error("CLERK_SECRET_KEY is required in production.");
+}
+
 validateProductionEnv();
 
 const app = express();
@@ -124,9 +139,13 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
-// Serve uploaded files statically
+// Serve uploaded files — supports /uploads/file AND /uploads/{userId}/file
 const uploadDir = process.env.UPLOAD_DIR || "./uploads";
-app.use("/uploads", express.static(path.resolve(uploadDir)));
+app.use("/uploads", express.static(path.resolve(uploadDir), { fallthrough: true }));
+// Serve per-user subdirectories dynamically
+app.use("/uploads/:userId", (req, res, next) => {
+  express.static(path.join(path.resolve(uploadDir), req.params.userId))(req, res, next);
+});
 
 // ─── API Routes ──────────────────────────────────────────────────────────────
 
@@ -136,9 +155,6 @@ if (isRateLimitDisabled()) {
 
 // Apply rate limiting to all API routes (skipped when disabled)
 app.use("/api", apiLimiter);
-
-// Auth routes with stricter rate limiting
-app.use("/api/auth", authLimiter, authRoutes);
 
 // Upload routes with upload-specific rate limiting
 app.use("/api/upload", uploadLimiter, uploadRoutes);
@@ -162,6 +178,16 @@ app.use("/api/playlist", playlistRoutes);
 app.use("/api/greetings", greetingsRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/canvas", canvasRoutes);
+app.use("/api/partner-invite", partnerInviteRoutes);
+app.use("/api/invitations", invitationRoutes);
+app.use("/api/partner", partnerLinkingRoutes);
+app.use("/api/shared", sharedMessagesRoutes);
+app.use("/api/shared", sharedAlbumsRoutes);
+app.use("/api/shared", coupleActivitiesRoutes);
+app.use("/api/shared", liveDrawingRoutes);
+app.use("/api/location", gpsLocationRoutes);
+app.use("/api/sync", syncDataRoutes);
+app.use("/api/migrate", migrateRoutes);
 
 // Health check (no rate limiting) — includes DB connectivity
 app.get("/api/health", async (_req, res) => {
@@ -189,9 +215,17 @@ async function start() {
     // Seed initial data
     await seedDatabase();
 
-    app.listen(PORT, () => {
+    // Create HTTP server
+    const server = createServer(app);
+
+    // Initialize WebSocket server
+    const wss = initializeWebSocket(server);
+    console.log("✅ WebSocket server initialized");
+
+    server.listen(PORT, () => {
       console.log(`\n🚀 USFLIX Backend running on http://localhost:${PORT}`);
       console.log(`📡 API available at http://localhost:${PORT}/api`);
+      console.log(`🔌 WebSocket available at ws://localhost:${PORT}/ws`);
       console.log(`🌐 CORS allowing: ${[...allowedOrigins].join(", ")}\n`);
     });
   } catch (error) {

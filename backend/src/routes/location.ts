@@ -1,19 +1,43 @@
 /**
  * Partner location — share GPS from devices, distance between profiles.
+ * Production-ready: Uses authenticated user's profiles, not environment variables.
  */
 import { Router, Request, Response } from "express";
 import pool from "../db/connection.js";
 import { canonicalPair, formatDistance, haversineKm } from "../utils/geo.js";
 import { logActivity } from "../services/activity.js";
+import { requireUserAuth } from "../middleware/userAuth.js";
 
 const router = Router();
 
 const CLOSER_NOTIFY_KM = 5;
 const NEARBY_THRESHOLD_KM = 5;
 
-function getPartnerProfileIds(): string[] {
-  const raw = process.env.PARTNER_PROFILE_IDS || "p1,p2";
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+/**
+ * Get the two profile IDs linked to the authenticated user.
+ * This makes location tracking profile-specific for the couple.
+ */
+async function getUserProfileIds(userId: number): Promise<string[]> {
+  const { rows } = await pool.query(
+    `SELECT profile_id FROM user_profiles 
+     WHERE user_id = $1 
+     ORDER BY is_primary DESC, created_at ASC
+     LIMIT 2`,
+    [userId]
+  );
+  return rows.map((r) => r.profile_id);
+}
+
+/**
+ * Check if a profile belongs to the authenticated user.
+ */
+async function isUserProfile(userId: number, profileId: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM user_profiles 
+     WHERE user_id = $1 AND profile_id = $2`,
+    [userId, profileId]
+  );
+  return rows.length > 0;
 }
 
 function isValidCoord(lat: unknown, lng: unknown): lat is number {
@@ -32,9 +56,11 @@ function isValidCoord(lat: unknown, lng: unknown): lat is number {
 /**
  * POST /api/location
  * Body: { profileId, latitude, longitude, accuracy?, clientId?, city? }
+ * Production-ready: Requires user authentication and validates profile ownership.
  */
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireUserAuth, async (req: Request, res: Response) => {
   try {
+    const userId = req.userAuth!.userId;
     const { profileId, latitude, longitude, accuracy, clientId, city, source } = req.body;
 
     if (!profileId || typeof profileId !== "string") {
@@ -47,6 +73,14 @@ router.post("/", async (req: Request, res: Response) => {
       return;
     }
 
+    // Verify profile belongs to authenticated user
+    const belongsToUser = await isUserProfile(userId, profileId);
+    if (!belongsToUser) {
+      res.status(403).json({ ok: false, error: "You can only update location for your own profiles." });
+      return;
+    }
+
+    // Verify profile exists
     const { rows: profileRows } = await pool.query(
       "SELECT id FROM profiles WHERE id = $1",
       [profileId]
@@ -96,10 +130,15 @@ router.post("/", async (req: Request, res: Response) => {
 /**
  * GET /api/location/status
  * Distance between partner profiles + notification flags.
+ * Production-ready: Uses authenticated user's profiles dynamically.
  */
-router.get("/status", async (_req: Request, res: Response) => {
+router.get("/status", requireUserAuth, async (req: Request, res: Response) => {
   try {
-    const partnerIds = getPartnerProfileIds();
+    const userId = req.userAuth!.userId;
+    
+    // Get the two profiles linked to this user
+    const partnerIds = await getUserProfileIds(userId);
+    
     if (partnerIds.length < 2) {
       res.json({
         ok: true,
@@ -109,6 +148,9 @@ router.get("/status", async (_req: Request, res: Response) => {
         notifyCloser: false,
         nearby: false,
         notifyNearby: false,
+        message: partnerIds.length === 0 
+          ? "No profiles found. Create profiles in Advanced Settings."
+          : "You need at least 2 profiles to track distance between partners."
       });
       return;
     }

@@ -1,18 +1,13 @@
 /**
  * Playlist routes — Our songs and song of the day
- * GET /api/playlist           — public
- * GET /api/playlist/our-song  — public, get "our song"
- * GET /api/playlist/song-of-day — public, get current song of the day
- * POST /api/playlist          — admin only
- * PUT /api/playlist/:id       — admin only
- * PATCH /api/playlist/:id/set-our-song — admin only
- * PATCH /api/playlist/:id/set-song-of-day — admin only
- * DELETE /api/playlist/:id    — admin only
+ * 🔒 SECURED WITH USER-LEVEL ISOLATION
  */
 import { Router, Request, Response } from "express";
 import { randomUUID } from "crypto";
 import pool from "../db/connection.js";
 import { requireAuth } from "../middleware/auth.js";
+import { requireUserAuth } from "../middleware/userAuth.js";
+import { getSpaceUserIdFromRequest, getRequestUserId, resolveSpaceUserIds } from "../utils/tenant.js";
 
 const router = Router();
 
@@ -38,10 +33,19 @@ function mapRow(r: any) {
 }
 
 /** GET /api/playlist */
-router.get("/", async (_req: Request, res: Response) => {
+router.get("/", requireUserAuth, async (req: Request, res: Response) => {
   try {
+    const userId = getRequestUserId(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+    
+    const spaceUserIds = await resolveSpaceUserIds(userId);
+    const placeholders = spaceUserIds.map((_, i) => `$${i + 1}`).join(',');
     const { rows } = await pool.query(
-      "SELECT * FROM playlist_songs ORDER BY sort_rank ASC, created_at DESC"
+      `SELECT * FROM playlist_songs WHERE user_id IN (${placeholders}) ORDER BY sort_rank ASC, created_at DESC`,
+      spaceUserIds
     );
     res.json(rows.map(mapRow));
   } catch (err: any) {
@@ -51,10 +55,19 @@ router.get("/", async (_req: Request, res: Response) => {
 });
 
 /** GET /api/playlist/our-song */
-router.get("/our-song", async (_req: Request, res: Response) => {
+router.get("/our-song", requireUserAuth, async (req: Request, res: Response) => {
   try {
+    const userId = getRequestUserId(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+    
+    const spaceUserIds = await resolveSpaceUserIds(userId);
+    const placeholders = spaceUserIds.map((_, i) => `$${i + 1}`).join(',');
     const { rows } = await pool.query(
-      "SELECT * FROM playlist_songs WHERE is_our_song = true LIMIT 1"
+      `SELECT * FROM playlist_songs WHERE is_our_song = true AND user_id IN (${placeholders}) LIMIT 1`,
+      spaceUserIds
     );
     if (rows.length === 0) {
       res.status(404).json({ ok: false, error: "No 'our song' set" });
@@ -68,10 +81,19 @@ router.get("/our-song", async (_req: Request, res: Response) => {
 });
 
 /** GET /api/playlist/song-of-day */
-router.get("/song-of-day", async (_req: Request, res: Response) => {
+router.get("/song-of-day", requireUserAuth, async (req: Request, res: Response) => {
   try {
+    const userId = getRequestUserId(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+    
+    const spaceUserIds = await resolveSpaceUserIds(userId);
+    const placeholders = spaceUserIds.map((_, i) => `$${i + 1}`).join(',');
     const { rows } = await pool.query(
-      "SELECT * FROM playlist_songs WHERE is_song_of_day = true LIMIT 1"
+      `SELECT * FROM playlist_songs WHERE is_song_of_day = true AND user_id IN (${placeholders}) LIMIT 1`,
+      spaceUserIds
     );
     if (rows.length === 0) {
       res.status(404).json({ ok: false, error: "No song of the day set" });
@@ -92,11 +114,18 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       res.status(400).json({ ok: false, error: "Title is required" });
       return;
     }
+
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
     const id = randomUUID();
     const { rows } = await pool.query(
-      `INSERT INTO playlist_songs (id, title, artist, spotify_url, youtube_url, memory_note, sort_rank)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [id, title.trim(), artist?.trim() || "", spotifyUrl?.trim() || null, youtubeUrl?.trim() || null, memoryNote?.trim() || "", sortRank ?? 0]
+      `INSERT INTO playlist_songs (id, user_id, title, artist, spotify_url, youtube_url, memory_note, sort_rank)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [id, userId, title.trim(), artist?.trim() || "", spotifyUrl?.trim() || null, youtubeUrl?.trim() || null, memoryNote?.trim() || "", sortRank ?? 0]
     );
     res.status(201).json({ ok: true, song: mapRow(rows[0]) });
   } catch (err: any) {
@@ -114,13 +143,20 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
       res.status(400).json({ ok: false, error: "Title is required" });
       return;
     }
+
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
     const { rows } = await pool.query(
       `UPDATE playlist_songs SET title=$1, artist=$2, spotify_url=$3, youtube_url=$4, memory_note=$5, sort_rank=$6
-       WHERE id=$7 RETURNING *`,
-      [title.trim(), artist?.trim() || "", spotifyUrl?.trim() || null, youtubeUrl?.trim() || null, memoryNote?.trim() || "", sortRank ?? 0, id]
+       WHERE id=$7 AND user_id=$8 RETURNING *`,
+      [title.trim(), artist?.trim() || "", spotifyUrl?.trim() || null, youtubeUrl?.trim() || null, memoryNote?.trim() || "", sortRank ?? 0, id, userId]
     );
     if (rows.length === 0) {
-      res.status(404).json({ ok: false, error: "Song not found" });
+      res.status(404).json({ ok: false, error: "Song not found or access denied" });
       return;
     }
     res.json({ ok: true, song: mapRow(rows[0]) });
@@ -134,15 +170,23 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
 router.patch("/:id/set-our-song", requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    // Unset all other songs
-    await pool.query("UPDATE playlist_songs SET is_our_song = false");
+
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
+    // Unset all other songs for this user
+    await pool.query("UPDATE playlist_songs SET is_our_song = false WHERE user_id = $1", [userId]);
+    
     // Set this one
     const { rows } = await pool.query(
-      "UPDATE playlist_songs SET is_our_song = true WHERE id=$1 RETURNING *",
-      [id]
+      "UPDATE playlist_songs SET is_our_song = true WHERE id=$1 AND user_id=$2 RETURNING *",
+      [id, userId]
     );
     if (rows.length === 0) {
-      res.status(404).json({ ok: false, error: "Song not found" });
+      res.status(404).json({ ok: false, error: "Song not found or access denied" });
       return;
     }
     res.json({ ok: true, song: mapRow(rows[0]) });
@@ -156,15 +200,23 @@ router.patch("/:id/set-our-song", requireAuth, async (req: Request, res: Respons
 router.patch("/:id/set-song-of-day", requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    // Unset all other songs
-    await pool.query("UPDATE playlist_songs SET is_song_of_day = false");
+
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
+    // Unset all other songs for this user
+    await pool.query("UPDATE playlist_songs SET is_song_of_day = false WHERE user_id = $1", [userId]);
+    
     // Set this one
     const { rows } = await pool.query(
-      "UPDATE playlist_songs SET is_song_of_day = true WHERE id=$1 RETURNING *",
-      [id]
+      "UPDATE playlist_songs SET is_song_of_day = true WHERE id=$1 AND user_id=$2 RETURNING *",
+      [id, userId]
     );
     if (rows.length === 0) {
-      res.status(404).json({ ok: false, error: "Song not found" });
+      res.status(404).json({ ok: false, error: "Song not found or access denied" });
       return;
     }
     res.json({ ok: true, song: mapRow(rows[0]) });
@@ -178,7 +230,18 @@ router.patch("/:id/set-song-of-day", requireAuth, async (req: Request, res: Resp
 router.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await pool.query("DELETE FROM playlist_songs WHERE id=$1", [id]);
+
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
+    const result = await pool.query("DELETE FROM playlist_songs WHERE id=$1 AND user_id=$2", [id, userId]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ ok: false, error: "Song not found or access denied" });
+      return;
+    }
     res.json({ ok: true });
   } catch (err: any) {
     console.error("playlist DELETE error:", err);

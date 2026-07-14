@@ -5,6 +5,7 @@
  * absolute backend URL. BACKEND_URL is set from VITE_API_URL at build time.
  */
 import { BACKEND_URL } from "@/lib/api";
+import { getClerkSessionToken } from "@/lib/clerk-token";
 
 function buildUrls(endpoint: string): string[] {
   const path = endpoint.startsWith("/api") ? endpoint : `/api${endpoint}`;
@@ -24,13 +25,17 @@ export async function fetchApiJson<T>(endpoint: string, init?: RequestInit): Pro
 
   for (const url of urls) {
     try {
+      const token = await getClerkSessionToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(init?.headers as Record<string, string>),
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       const response = await fetch(url, {
         credentials: "include",
         ...init,
-        headers: {
-          "Content-Type": "application/json",
-          ...init?.headers,
-        },
+        headers,
       });
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}));

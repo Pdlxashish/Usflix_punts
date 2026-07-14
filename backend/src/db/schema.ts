@@ -19,10 +19,205 @@ export async function createTables(): Promise<void> {
       );
     `);
 
+    // Public users (supports both Google OAuth and email/password)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        google_id VARCHAR(255),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        display_name VARCHAR(200) NOT NULL,
+        profile_picture_url VARCHAR(500),
+        password_hash VARCHAR(255),
+        auth_provider VARCHAR(20) NOT NULL DEFAULT 'email',
+        email_verified BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    // Migration: make google_id nullable for email/password users
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE users ALTER COLUMN google_id DROP NOT NULL;
+      EXCEPTION
+        WHEN others THEN NULL;
+      END $$;
+    `);
+
+    // Migration: add password_hash column if missing
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='users' AND column_name='password_hash'
+        ) THEN
+          ALTER TABLE users ADD COLUMN password_hash VARCHAR(255);
+        END IF;
+      END $$;
+    `);
+
+    // Migration: add auth_provider column if missing
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='users' AND column_name='auth_provider'
+        ) THEN
+          ALTER TABLE users ADD COLUMN auth_provider VARCHAR(20) NOT NULL DEFAULT 'email';
+        END IF;
+      END $$;
+    `);
+
+    // Migration: add email_verified column if missing
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='users' AND column_name='email_verified'
+        ) THEN
+          ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT false;
+        END IF;
+      END $$;
+    `);
+
+    // Create partial unique index for google_id (only when not null)
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id_unique 
+      ON users (google_id) WHERE google_id IS NOT NULL;
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_google_id ON users (google_id);
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users (email);
+    `);
+
+    // Profiles (must be created before user_profiles and other dependent tables)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS profiles (
+        id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        color VARCHAR(50) NOT NULL,
+        profile_picture_url VARCHAR(500),
+        avatar_shape VARCHAR(50) NOT NULL DEFAULT 'square'
+      );
+    `);
+
+    // Migration: add user_id column if missing (must come before index creation)
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='user_id'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles (user_id);
+    `);
+
+    // Migration: add profile_picture_url column if missing
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='profile_picture_url'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN profile_picture_url VARCHAR(500);
+        END IF;
+      END $$;
+    `);
+
+    // Migration: add avatar_shape column if missing
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='avatar_shape'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN avatar_shape VARCHAR(50) NOT NULL DEFAULT 'square';
+        END IF;
+      END $$;
+    `);
+
+    // Migration: birthday (DATE, optional)
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='birthday'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN birthday DATE;
+        END IF;
+      END $$;
+    `);
+
+    // Migration: role (self | partner)
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='role'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'self'
+            CHECK (role IN ('self', 'partner'));
+        END IF;
+      END $$;
+    `);
+
+    // Migration: created_at on profiles
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='created_at'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN created_at TIMESTAMP DEFAULT NOW();
+        END IF;
+      END $$;
+    `);
+
+    // Migration: add profile_id column to users table (now that profiles table exists)
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='users' AND column_name='profile_id'
+        ) THEN
+          ALTER TABLE users ADD COLUMN profile_id VARCHAR(100) REFERENCES profiles(id) ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `);
+
+    // Junction table: links one Google user to multiple profiles (Netflix-style)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_profiles (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        profile_id VARCHAR(100) NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+        is_primary BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, profile_id)
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles (user_id);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_profiles_profile_id ON user_profiles (profile_id);
+    `);
+
     // Collections
     await client.query(`
       CREATE TABLE IF NOT EXISTS collections (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         name VARCHAR(200) NOT NULL,
         description TEXT,
         parent_id VARCHAR(100) REFERENCES collections(id) ON DELETE SET NULL,
@@ -31,10 +226,15 @@ export async function createTables(): Promise<void> {
       );
     `);
 
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections (user_id);
+    `);
+
     // Media items — supports photo, video, voice
     await client.query(`
       CREATE TABLE IF NOT EXISTS media_items (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         type VARCHAR(10) NOT NULL DEFAULT 'photo' CHECK (type IN ('photo', 'video', 'voice')),
         title VARCHAR(200) NOT NULL,
         year VARCHAR(10) NOT NULL,
@@ -51,6 +251,10 @@ export async function createTables(): Promise<void> {
         featured BOOLEAN NOT NULL DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW()
       );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_media_items_user_id ON media_items (user_id);
     `);
 
     // Migration: add audio_url column if missing
@@ -81,6 +285,7 @@ export async function createTables(): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS hero_banners (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         title VARCHAR(200) NOT NULL,
         subtitle TEXT NOT NULL DEFAULT '',
         media_url VARCHAR(500) NOT NULL,
@@ -90,10 +295,14 @@ export async function createTables(): Promise<void> {
       );
     `);
 
-    // Branding config (single row table)
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_hero_banners_user_id ON hero_banners (user_id);
+    `);
+
+    // Branding config (one row per user)
     await client.query(`
       CREATE TABLE IF NOT EXISTS branding (
-        id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         platform_name VARCHAR(100) NOT NULL DEFAULT 'USFLIX',
         hero_tagline VARCHAR(200) NOT NULL DEFAULT '',
         hero_subtitle VARCHAR(200) NOT NULL DEFAULT '',
@@ -150,53 +359,6 @@ export async function createTables(): Promise<void> {
         END $$;
       `);
     }
-
-    // Profiles
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS profiles (
-        id VARCHAR(100) PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        color VARCHAR(50) NOT NULL,
-        profile_picture_url VARCHAR(500),
-        avatar_shape VARCHAR(50) NOT NULL DEFAULT 'square'
-      );
-    `);
-
-    // Migration: add profile_picture_url column if missing
-    await client.query(`
-      DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_name='profiles' AND column_name='profile_picture_url'
-        ) THEN
-          ALTER TABLE profiles ADD COLUMN profile_picture_url VARCHAR(500);
-        END IF;
-      END $$;
-    `);
-
-    // Migration: add avatar_shape column if missing
-    await client.query(`
-      DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_name='profiles' AND column_name='avatar_shape'
-        ) THEN
-          ALTER TABLE profiles ADD COLUMN avatar_shape VARCHAR(50) NOT NULL DEFAULT 'square';
-        END IF;
-      END $$;
-    `);
-
-    // Migration: birthday (DATE, optional)
-    await client.query(`
-      DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_name='profiles' AND column_name='birthday'
-        ) THEN
-          ALTER TABLE profiles ADD COLUMN birthday DATE;
-        END IF;
-      END $$;
-    `);
 
     // My List
     await client.query(`
@@ -299,6 +461,7 @@ export async function createTables(): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS love_letters (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         "from" VARCHAR(100) NOT NULL,
         preview VARCHAR(300) NOT NULL,
         message TEXT NOT NULL,
@@ -308,10 +471,15 @@ export async function createTables(): Promise<void> {
       );
     `);
 
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_love_letters_user_id ON love_letters (user_id);
+    `);
+
     // ── Love Jar ──────────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS love_jar (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         reason TEXT NOT NULL,
         emoji VARCHAR(10) NOT NULL DEFAULT '💕',
         sort_rank INTEGER NOT NULL DEFAULT 0,
@@ -319,10 +487,15 @@ export async function createTables(): Promise<void> {
       );
     `);
 
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_love_jar_user_id ON love_jar (user_id);
+    `);
+
     // ── Mood Board ────────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS mood_board (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         image_url VARCHAR(500) NOT NULL,
         alt VARCHAR(200) NOT NULL DEFAULT '',
         sort_rank INTEGER NOT NULL DEFAULT 0,
@@ -330,10 +503,15 @@ export async function createTables(): Promise<void> {
       );
     `);
 
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_mood_board_user_id ON mood_board (user_id);
+    `);
+
     // ── Milestones ("First Time We...") ───────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS milestones (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         title VARCHAR(200) NOT NULL,
         story TEXT NOT NULL DEFAULT '',
         milestone_date VARCHAR(20) NOT NULL,
@@ -343,10 +521,15 @@ export async function createTables(): Promise<void> {
       );
     `);
 
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_milestones_user_id ON milestones (user_id);
+    `);
+
     // ── Relationship Quiz ─────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS quiz_questions (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         question TEXT NOT NULL,
         option_a VARCHAR(300) NOT NULL,
         option_b VARCHAR(300) NOT NULL,
@@ -359,10 +542,15 @@ export async function createTables(): Promise<void> {
       );
     `);
 
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_quiz_questions_user_id ON quiz_questions (user_id);
+    `);
+
     // ── Bucket List ───────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS bucket_list (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         item VARCHAR(300) NOT NULL,
         emoji VARCHAR(10) NOT NULL DEFAULT '✨',
         completed BOOLEAN NOT NULL DEFAULT false,
@@ -372,22 +560,32 @@ export async function createTables(): Promise<void> {
       );
     `);
 
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_bucket_list_user_id ON bucket_list (user_id);
+    `);
+
     // ── Mood of the Day ───────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS mood_of_day (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         mood_date VARCHAR(20) NOT NULL,
         emoji VARCHAR(10) NOT NULL DEFAULT '😊',
         message VARCHAR(300) NOT NULL DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(mood_date)
+        UNIQUE(user_id, mood_date)
       );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_mood_of_day_user_id ON mood_of_day (user_id);
     `);
 
     // ── Our Playlist / Song of the Day ────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS playlist_songs (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         title VARCHAR(200) NOT NULL,
         artist VARCHAR(200) NOT NULL DEFAULT '',
         spotify_url VARCHAR(500),
@@ -398,6 +596,10 @@ export async function createTables(): Promise<void> {
         sort_rank INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_playlist_songs_user_id ON playlist_songs (user_id);
     `);
 
     // ── Weather Locations ──────────────────────────────────────────────────────
@@ -437,6 +639,7 @@ export async function createTables(): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS canvas_drawings (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         profile_id VARCHAR(100) REFERENCES profiles(id) ON DELETE SET NULL,
         drawing_data TEXT NOT NULL,
         thumbnail_url VARCHAR(500),
@@ -444,6 +647,10 @@ export async function createTables(): Promise<void> {
         is_active BOOLEAN NOT NULL DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW()
       );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_canvas_drawings_user_id ON canvas_drawings (user_id);
     `);
 
     // Migration: add is_active column if missing
@@ -462,12 +669,265 @@ export async function createTables(): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS time_greetings (
         id VARCHAR(100) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         time_of_day VARCHAR(20) NOT NULL CHECK (time_of_day IN ('morning', 'afternoon', 'evening', 'night')),
         message TEXT NOT NULL,
         is_active BOOLEAN NOT NULL DEFAULT true,
         sort_rank INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_time_greetings_user_id ON time_greetings (user_id);
+    `);
+
+    // Migration: household_id + linked_user_id on profiles
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='household_id'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN household_id VARCHAR(100);
+        END IF;
+      END $$;
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='linked_user_id'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN linked_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `);
+
+    // Migration: partner_invites status includes declined + expired
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE partner_invites DROP CONSTRAINT IF EXISTS partner_invites_status_check;
+      EXCEPTION WHEN others THEN NULL;
+      END $$;
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE partner_invites ADD CONSTRAINT partner_invites_status_check
+          CHECK (status IN ('pending', 'accepted', 'declined', 'expired', 'revoked'));
+      EXCEPTION WHEN others THEN NULL;
+      END $$;
+    `);
+
+    // ── Partner Invite System ─────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS partner_invites (
+        id VARCHAR(100) PRIMARY KEY,
+        inviting_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        invite_code VARCHAR(64) UNIQUE NOT NULL,
+        invited_email VARCHAR(255),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'accepted', 'revoked')),
+        partner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        expires_at TIMESTAMP NOT NULL,
+        accepted_at TIMESTAMP
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_partner_invites_inviting_user
+        ON partner_invites (inviting_user_id);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_partner_invites_code
+        ON partner_invites (invite_code);
+    `);
+
+    // ── Tenant Memberships (who can read whose shared space) ──────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tenant_memberships (
+        id SERIAL PRIMARY KEY,
+        owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        member_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(20) NOT NULL DEFAULT 'partner'
+          CHECK (role IN ('partner', 'viewer')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(owner_user_id, member_user_id)
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_tenant_memberships_owner
+        ON tenant_memberships (owner_user_id);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_tenant_memberships_member
+        ON tenant_memberships (member_user_id);
+    `);
+
+    // ── Partner Links (active partner relationships with couple_id) ───────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS partner_links (
+        id VARCHAR(100) PRIMARY KEY,
+        couple_id VARCHAR(100) UNIQUE NOT NULL,
+        user_a_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_b_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE(user_a_id, user_b_id),
+        CHECK (user_a_id < user_b_id)
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_partner_links_user_a ON partner_links (user_a_id);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_partner_links_user_b ON partner_links (user_b_id);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_partner_links_couple_id ON partner_links (couple_id);
+    `);
+
+    // ── Shared Messages (chat between partners) ───────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS shared_messages (
+        id VARCHAR(100) PRIMARY KEY,
+        couple_id VARCHAR(100) NOT NULL,
+        sender_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message_text TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        read_by_partner BOOLEAN NOT NULL DEFAULT FALSE
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_shared_messages_couple_id 
+        ON shared_messages (couple_id, created_at DESC);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_shared_messages_sender 
+        ON shared_messages (sender_user_id);
+    `);
+
+    // ── Couple Activities (romance activities, responses, streaks) ────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS couple_activities (
+        id VARCHAR(100) PRIMARY KEY,
+        couple_id VARCHAR(100) NOT NULL,
+        activity_type VARCHAR(50) NOT NULL,
+        activity_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        user_a_completed BOOLEAN NOT NULL DEFAULT FALSE,
+        user_b_completed BOOLEAN NOT NULL DEFAULT FALSE,
+        user_a_response JSONB,
+        user_b_response JSONB,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE(couple_id, activity_type, activity_date)
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_couple_activities_couple_id 
+        ON couple_activities (couple_id, activity_date DESC);
+    `);
+
+    // ── Location Updates (GPS coordinates from devices) ───────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS location_updates (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        couple_id VARCHAR(100),
+        latitude DECIMAL(10, 8) NOT NULL,
+        longitude DECIMAL(11, 8) NOT NULL,
+        accuracy DECIMAL(10, 2),
+        timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
+        device_id VARCHAR(100)
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_location_updates_user_id 
+        ON location_updates (user_id, timestamp DESC);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_location_updates_couple_id 
+        ON location_updates (couple_id, timestamp DESC);
+    `);
+
+    // Migration: Add couple_id to profiles table
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='couple_id'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN couple_id VARCHAR(100);
+        END IF;
+      END $$;
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_profiles_couple_id ON profiles (couple_id);
+    `);
+
+    // Migration: Add location_sharing_enabled to profiles table
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='profiles' AND column_name='location_sharing_enabled'
+        ) THEN
+          ALTER TABLE profiles ADD COLUMN location_sharing_enabled BOOLEAN DEFAULT true;
+        END IF;
+      END $$;
+    `);
+
+    // Migration: Add couple_id to media_items table
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='media_items' AND column_name='couple_id'
+        ) THEN
+          ALTER TABLE media_items ADD COLUMN couple_id VARCHAR(100);
+        END IF;
+      END $$;
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_media_items_couple_id ON media_items (couple_id);
+    `);
+
+    // Migration: Add couple_id to canvas_drawings table
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='canvas_drawings' AND column_name='couple_id'
+        ) THEN
+          ALTER TABLE canvas_drawings ADD COLUMN couple_id VARCHAR(100);
+        END IF;
+      END $$;
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_canvas_drawings_couple_id ON canvas_drawings (couple_id);
+    `);
+
+    // ── clerk_users: map Clerk user IDs → internal users.id ──────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clerk_users (
+        clerk_id VARCHAR(255) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email VARCHAR(255) NOT NULL,
+        display_name VARCHAR(200),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_clerk_users_user_id
+        ON clerk_users (user_id);
     `);
 
     await client.query("COMMIT");

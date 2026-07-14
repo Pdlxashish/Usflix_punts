@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
-import { useAuth } from "@/context/auth";
+import { useAuth, useClerk } from "@clerk/tanstack-react-start";
 import { api } from "@/lib/api";
 import { AdminSectionCard, AdminFormActions } from "@/components/admin/AdminSubNavLayout";
 import { useToast } from "@/components/ui/Toast";
@@ -12,7 +12,8 @@ import { useToast } from "@/components/ui/Toast";
 const MIN_PASSWORD_LENGTH = 6;
 
 export function ChangePasswordTab() {
-  const { username, logout } = useAuth();
+  const { signOut } = useClerk();
+  const { userId } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -86,10 +87,9 @@ export function ChangePasswordTab() {
 
     if (result.ok && result.data?.ok) {
       resetForm();
-      await logout();
-      toast.success("Password updated. Sign in with your new password.");
-      navigate({ to: "/admin/login" });
-      return;
+      await signOut();
+      toast.success("Password updated. Sign in with your new credentials.");
+      navigate({ to: "/sign-in/$", params: { _splat: "" } });
     }
 
     setError(result.error || "Could not update password. Please try again.");
@@ -100,8 +100,8 @@ export function ChangePasswordTab() {
       <AdminSectionCard
         title="Change password"
         description={
-          username
-            ? `Update the password for ${username}. You will be signed out and must log in again.`
+          userId
+            ? "Update your account password. You will be signed out after saving."
             : "Update your admin account password. You will be signed out after saving."
         }
       >

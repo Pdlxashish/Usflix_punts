@@ -9,18 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SelectProfileRouteImport } from './routes/select-profile'
 import { Route as ProfilesRouteImport } from './routes/profiles'
+import { Route as JoinRouteImport } from './routes/join'
 import { Route as FeaturedRouteImport } from './routes/featured'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AlbumsIndexRouteImport } from './routes/albums.index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as WatchMediaIdRouteImport } from './routes/watch.$mediaId'
+import { Route as SignUpSplatRouteImport } from './routes/sign-up.$'
+import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AlbumsAlbumIdRouteImport } from './routes/albums.$albumId'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 
+const SelectProfileRoute = SelectProfileRouteImport.update({
+  id: '/select-profile',
+  path: '/select-profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfilesRoute = ProfilesRouteImport.update({
   id: '/profiles',
   path: '/profiles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinRoute = JoinRouteImport.update({
+  id: '/join',
+  path: '/join',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeaturedRoute = FeaturedRouteImport.update({
@@ -48,6 +63,21 @@ const WatchMediaIdRoute = WatchMediaIdRouteImport.update({
   path: '/watch/$mediaId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignUpSplatRoute = SignUpSplatRouteImport.update({
+  id: '/sign-up/$',
+  path: '/sign-up/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInSplatRoute = SignInSplatRouteImport.update({
+  id: '/sign-in/$',
+  path: '/sign-in/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AlbumsAlbumIdRoute = AlbumsAlbumIdRouteImport.update({
   id: '/albums/$albumId',
   path: '/albums/$albumId',
@@ -62,9 +92,14 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/featured': typeof FeaturedRoute
+  '/join': typeof JoinRoute
   '/profiles': typeof ProfilesRoute
+  '/select-profile': typeof SelectProfileRoute
   '/admin/login': typeof AdminLoginRoute
   '/albums/$albumId': typeof AlbumsAlbumIdRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/sign-in/$': typeof SignInSplatRoute
+  '/sign-up/$': typeof SignUpSplatRoute
   '/watch/$mediaId': typeof WatchMediaIdRoute
   '/admin/': typeof AdminIndexRoute
   '/albums/': typeof AlbumsIndexRoute
@@ -72,9 +107,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/featured': typeof FeaturedRoute
+  '/join': typeof JoinRoute
   '/profiles': typeof ProfilesRoute
+  '/select-profile': typeof SelectProfileRoute
   '/admin/login': typeof AdminLoginRoute
   '/albums/$albumId': typeof AlbumsAlbumIdRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/sign-in/$': typeof SignInSplatRoute
+  '/sign-up/$': typeof SignUpSplatRoute
   '/watch/$mediaId': typeof WatchMediaIdRoute
   '/admin': typeof AdminIndexRoute
   '/albums': typeof AlbumsIndexRoute
@@ -83,9 +123,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/featured': typeof FeaturedRoute
+  '/join': typeof JoinRoute
   '/profiles': typeof ProfilesRoute
+  '/select-profile': typeof SelectProfileRoute
   '/admin/login': typeof AdminLoginRoute
   '/albums/$albumId': typeof AlbumsAlbumIdRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/sign-in/$': typeof SignInSplatRoute
+  '/sign-up/$': typeof SignUpSplatRoute
   '/watch/$mediaId': typeof WatchMediaIdRoute
   '/admin/': typeof AdminIndexRoute
   '/albums/': typeof AlbumsIndexRoute
@@ -95,9 +140,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/featured'
+    | '/join'
     | '/profiles'
+    | '/select-profile'
     | '/admin/login'
     | '/albums/$albumId'
+    | '/invite/$token'
+    | '/sign-in/$'
+    | '/sign-up/$'
     | '/watch/$mediaId'
     | '/admin/'
     | '/albums/'
@@ -105,9 +155,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/featured'
+    | '/join'
     | '/profiles'
+    | '/select-profile'
     | '/admin/login'
     | '/albums/$albumId'
+    | '/invite/$token'
+    | '/sign-in/$'
+    | '/sign-up/$'
     | '/watch/$mediaId'
     | '/admin'
     | '/albums'
@@ -115,9 +170,14 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/featured'
+    | '/join'
     | '/profiles'
+    | '/select-profile'
     | '/admin/login'
     | '/albums/$albumId'
+    | '/invite/$token'
+    | '/sign-in/$'
+    | '/sign-up/$'
     | '/watch/$mediaId'
     | '/admin/'
     | '/albums/'
@@ -126,9 +186,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FeaturedRoute: typeof FeaturedRoute
+  JoinRoute: typeof JoinRoute
   ProfilesRoute: typeof ProfilesRoute
+  SelectProfileRoute: typeof SelectProfileRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AlbumsAlbumIdRoute: typeof AlbumsAlbumIdRoute
+  InviteTokenRoute: typeof InviteTokenRoute
+  SignInSplatRoute: typeof SignInSplatRoute
+  SignUpSplatRoute: typeof SignUpSplatRoute
   WatchMediaIdRoute: typeof WatchMediaIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AlbumsIndexRoute: typeof AlbumsIndexRoute
@@ -136,11 +201,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/select-profile': {
+      id: '/select-profile'
+      path: '/select-profile'
+      fullPath: '/select-profile'
+      preLoaderRoute: typeof SelectProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profiles': {
       id: '/profiles'
       path: '/profiles'
       fullPath: '/profiles'
       preLoaderRoute: typeof ProfilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join': {
+      id: '/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof JoinRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/featured': {
@@ -178,6 +257,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchMediaIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign-up/$': {
+      id: '/sign-up/$'
+      path: '/sign-up/$'
+      fullPath: '/sign-up/$'
+      preLoaderRoute: typeof SignUpSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in/$': {
+      id: '/sign-in/$'
+      path: '/sign-in/$'
+      fullPath: '/sign-in/$'
+      preLoaderRoute: typeof SignInSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/albums/$albumId': {
       id: '/albums/$albumId'
       path: '/albums/$albumId'
@@ -198,9 +298,14 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FeaturedRoute: FeaturedRoute,
+  JoinRoute: JoinRoute,
   ProfilesRoute: ProfilesRoute,
+  SelectProfileRoute: SelectProfileRoute,
   AdminLoginRoute: AdminLoginRoute,
   AlbumsAlbumIdRoute: AlbumsAlbumIdRoute,
+  InviteTokenRoute: InviteTokenRoute,
+  SignInSplatRoute: SignInSplatRoute,
+  SignUpSplatRoute: SignUpSplatRoute,
   WatchMediaIdRoute: WatchMediaIdRoute,
   AdminIndexRoute: AdminIndexRoute,
   AlbumsIndexRoute: AlbumsIndexRoute,

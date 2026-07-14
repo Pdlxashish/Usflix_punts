@@ -1,12 +1,12 @@
 /**
  * Shared Canvas — Interactive drawing board for partners
  * - Auto-saves every stroke (2 s debounce)
- * - Subscribes to SSE stream so remote partner's strokes appear live
+ * - Real-time updates via WebSocket - partner sees your strokes instantly!
  */
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Palette, Download, Eraser, Trash2, Undo, Redo, Save, CheckCircle, Wifi } from "lucide-react";
 import { fetchApiJson } from "@/lib/fetchApi";
-import { BACKEND_URL } from "@/lib/api";
+import { useWebSocketEvent, useWebSocket } from "@/context/websocket";
 
 interface CanvasData {
   id: string | null;
@@ -62,7 +62,8 @@ export function SharedCanvas() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isEraser, setIsEraser] = useState(false);
   const isDrawingRef = useRef(false); // track drawing without triggering re-renders
-  const [remoteConnected, setRemoteConnected] = useState(false);
+  const { connectionState } = useWebSocket();
+  const remoteConnected = connectionState === "connected";
 
   // Load canvas data
   useEffect(() => {
@@ -86,38 +87,33 @@ export function SharedCanvas() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── SSE: subscribe to live canvas updates from the remote partner ────────────
-  useEffect(() => {
-    const es = new EventSource(`${BACKEND_URL}/api/canvas/stream`);
+  // 🔄 REAL-TIME UPDATE: Listen for partner's canvas updates via WebSocket
+  useWebSocketEvent("canvas:updated", useCallback((data: any) => {
+    console.log("[CANVAS] Partner updated canvas:", data);
+    
+    // Ignore updates that arrive while the local user is actively drawing
+    if (isDrawingRef.current) {
+      console.log("[CANVAS] Ignoring update - currently drawing");
+      return;
+    }
 
-    es.onopen = () => setRemoteConnected(true);
-    es.onerror = () => setRemoteConnected(false);
+    try {
+      const parsed = JSON.parse(data.drawingData) as { paths?: Path[] };
+      if (!parsed.paths) return;
 
-    es.onmessage = (event) => {
-      // Ignore updates that arrive while the local user is actively drawing
-      // to avoid interrupting their current stroke.
-      if (isDrawingRef.current) return;
-
-      try {
-        const { drawingData } = JSON.parse(event.data) as { drawingData: string };
-        const parsed = JSON.parse(drawingData) as { paths?: Path[] };
-        if (!parsed.paths) return;
-
-        setDrawingState((prev) => {
-          // Only update if the remote state actually differs (avoids echo from own saves)
-          if (JSON.stringify(prev.paths) === JSON.stringify(parsed.paths)) return prev;
-          return { paths: parsed.paths!, currentPath: [] };
-        });
-      } catch {
-        // Malformed event — ignore
-      }
-    };
-
-    return () => {
-      es.close();
-      setRemoteConnected(false);
-    };
-  }, []);
+      setDrawingState((prev) => {
+        // Only update if the remote state actually differs
+        if (JSON.stringify(prev.paths) === JSON.stringify(parsed.paths)) {
+          console.log("[CANVAS] No changes detected, skipping update");
+          return prev;
+        }
+        console.log("[CANVAS] Applying partner's changes");
+        return { paths: parsed.paths!, currentPath: [] };
+      });
+    } catch (error) {
+      console.error("[CANVAS] Error parsing partner's canvas data:", error);
+    }
+  }, []));
 
   // Auto-save drawing with 2s debounce after each stroke
   const scheduleSave = useCallback((state: DrawingState) => {
@@ -125,13 +121,16 @@ export function SharedCanvas() {
     setSaveStatus("saving");
     saveTimerRef.current = setTimeout(async () => {
       try {
+        console.log("[CANVAS] Saving canvas data to backend...");
         await fetchApiJson("/canvas/current", {
           method: "PATCH",
           body: JSON.stringify({ drawingData: JSON.stringify({ paths: state.paths }) }),
         });
+        console.log("[CANVAS] Save successful, backend will broadcast to partner");
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 2000);
-      } catch {
+      } catch (error) {
+        console.error("[CANVAS] Save failed:", error);
         setSaveStatus("idle");
       }
     }, 2000);

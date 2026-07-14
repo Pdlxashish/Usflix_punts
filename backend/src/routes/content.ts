@@ -1,19 +1,25 @@
 /**
  * Content routes — Collections and Media Items CRUD.
+ * 🔒 SECURED WITH USER-LEVEL ISOLATION
+ * All routes now filter by user_id to prevent cross-user data leakage.
  */
 import { Router, Request, Response } from "express";
 import pool from "../db/connection.js";
 import { requireAuth } from "../middleware/auth.js";
+import { requireUserAuth } from "../middleware/userAuth.js";
+import { getSpaceUserIdFromRequest, getRequestUserId, resolveSpaceUserIds } from "../utils/tenant.js";
 
 const router = Router();
 
 // ─── Collections ──────────────────────────────────────────────────────────────
 
-/** GET /api/collections — List all collections */
-router.get("/collections", async (_req: Request, res: Response) => {
+/** GET /api/collections — List all collections for authenticated user */
+router.get("/collections", requireUserAuth, async (req: Request, res: Response) => {
   try {
+    const spaceUserId = await getSpaceUserIdFromRequest(req);
     const { rows } = await pool.query(
-      "SELECT id, name, description, parent_id, sort_rank FROM collections ORDER BY sort_rank ASC",
+      "SELECT id, name, description, parent_id, sort_rank FROM collections WHERE user_id = $1 ORDER BY sort_rank ASC",
+      [spaceUserId]
     );
     const collections = rows.map((r) => ({
       id: r.id,
@@ -49,7 +55,13 @@ router.post("/collections", requireAuth, async (req: Request, res: Response) => 
       return;
     }
 
-    // Check nesting depth
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
+    // Check nesting depth (within user's collections only)
     if (parentId) {
       let depth = 0;
       let currentId: string | null = parentId;
@@ -59,20 +71,24 @@ router.post("/collections", requireAuth, async (req: Request, res: Response) => 
           res.status(400).json({ ok: false, error: "Cannot nest beyond 3 levels." });
           return;
         }
-        const { rows } = await pool.query("SELECT parent_id FROM collections WHERE id = $1", [
-          currentId,
-        ]);
+        const { rows } = await pool.query(
+          "SELECT parent_id FROM collections WHERE id = $1 AND user_id = $2", 
+          [currentId, userId]
+        );
         currentId = rows[0]?.parent_id || null;
       }
     }
 
     const id = `c-${Date.now()}`;
-    const { rows: countRows } = await pool.query("SELECT COUNT(*) as count FROM collections");
+    const { rows: countRows } = await pool.query(
+      "SELECT COUNT(*) as count FROM collections WHERE user_id = $1",
+      [userId]
+    );
     const sortRank = parseInt(countRows[0].count) + 1;
 
     await pool.query(
-      "INSERT INTO collections (id, name, description, parent_id, sort_rank) VALUES ($1, $2, $3, $4, $5)",
-      [id, name.trim(), description?.trim() || null, parentId || null, sortRank],
+      "INSERT INTO collections (id, user_id, name, description, parent_id, sort_rank) VALUES ($1, $2, $3, $4, $5, $6)",
+      [id, userId, name.trim(), description?.trim() || null, parentId || null, sortRank],
     );
 
     res.json({ ok: true, id });
@@ -99,6 +115,12 @@ router.put("/collections/:id", requireAuth, async (req: Request, res: Response) 
       return;
     }
 
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
     const updates: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -117,11 +139,16 @@ router.put("/collections/:id", requireAuth, async (req: Request, res: Response) 
       return;
     }
 
-    values.push(id);
-    await pool.query(
-      `UPDATE collections SET ${updates.join(", ")} WHERE id = $${paramIndex}`,
+    values.push(id, userId);
+    const result = await pool.query(
+      `UPDATE collections SET ${updates.join(", ")} WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1}`,
       values,
     );
+
+    if (result.rowCount === 0) {
+      res.status(404).json({ ok: false, error: "Collection not found or access denied" });
+      return;
+    }
 
     res.json({ ok: true });
   } catch (error) {
@@ -136,9 +163,18 @@ router.delete("/collections/:id", requireAuth, async (req: Request, res: Respons
     const { id } = req.params;
     const { mode } = req.query; // "delete-items" or "move-to-parent"
 
-    const { rows: colRows } = await pool.query("SELECT * FROM collections WHERE id = $1", [id]);
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
+    const { rows: colRows } = await pool.query(
+      "SELECT * FROM collections WHERE id = $1 AND user_id = $2", 
+      [id, userId]
+    );
     if (colRows.length === 0) {
-      res.status(404).json({ ok: false, error: "Collection not found." });
+      res.status(404).json({ ok: false, error: "Collection not found or access denied" });
       return;
     }
 
@@ -148,30 +184,33 @@ router.delete("/collections/:id", requireAuth, async (req: Request, res: Respons
       await client.query("BEGIN");
 
       if (mode === "delete-items") {
-        await client.query("DELETE FROM media_items WHERE LOWER(category) = LOWER($1)", [col.name]);
+        await client.query(
+          "DELETE FROM media_items WHERE LOWER(category) = LOWER($1) AND user_id = $2", 
+          [col.name, userId]
+        );
       } else {
         // Move items to parent collection or "Uncategorized"
         let targetCategory = "Uncategorized";
         if (col.parent_id) {
           const { rows: parentRows } = await client.query(
-            "SELECT name FROM collections WHERE id = $1",
-            [col.parent_id],
+            "SELECT name FROM collections WHERE id = $1 AND user_id = $2",
+            [col.parent_id, userId],
           );
           if (parentRows.length > 0) targetCategory = parentRows[0].name;
         }
         await client.query(
-          "UPDATE media_items SET category = $1 WHERE LOWER(category) = LOWER($2)",
-          [targetCategory, col.name],
+          "UPDATE media_items SET category = $1 WHERE LOWER(category) = LOWER($2) AND user_id = $3",
+          [targetCategory, col.name, userId],
         );
       }
 
       // Reassign child collections to parent
-      await client.query("UPDATE collections SET parent_id = $1 WHERE parent_id = $2", [
-        col.parent_id || null,
-        id,
-      ]);
+      await client.query(
+        "UPDATE collections SET parent_id = $1 WHERE parent_id = $2 AND user_id = $3", 
+        [col.parent_id || null, id, userId]
+      );
 
-      await client.query("DELETE FROM collections WHERE id = $1", [id]);
+      await client.query("DELETE FROM collections WHERE id = $1 AND user_id = $2", [id, userId]);
       await client.query("COMMIT");
       res.json({ ok: true });
     } catch (error) {
@@ -213,19 +252,29 @@ router.post("/media", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const { rows: countRows } = await pool.query("SELECT COUNT(*) as count FROM media_items");
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
+    const { rows: countRows } = await pool.query(
+      "SELECT COUNT(*) as count FROM media_items WHERE user_id = $1",
+      [userId]
+    );
     const rank = sortRank ?? parseInt(countRows[0].count) + 1;
 
     const mediaId = id || `m-${Date.now()}`;
 
     await pool.query(
       `INSERT INTO media_items (
-        id, type, title, year, tagline, description, 
+        id, user_id, type, title, year, tagline, description, 
         thumbnail, category, sort_rank, video_url, audio_url, duration, 
         photos, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         mediaId,
+        userId,
         type || "photo",
         title.trim(),
         year || new Date().getFullYear().toString(),
@@ -249,10 +298,27 @@ router.post("/media", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/media — List all media items */
-router.get("/media", async (_req: Request, res: Response) => {
+/** GET /api/media — List all media items for authenticated user and their partner */
+router.get("/media", requireUserAuth, async (req: Request, res: Response) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM media_items ORDER BY sort_rank ASC");
+    const userId = getRequestUserId(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+    
+    // Get all user IDs in the couple (includes both partners if linked)
+    const spaceUserIds = await resolveSpaceUserIds(userId);
+    
+    // Fetch media for ALL users in the couple space
+    const placeholders = spaceUserIds.map((_, i) => `$${i + 1}`).join(',');
+    const { rows } = await pool.query(
+      `SELECT * FROM media_items 
+       WHERE user_id IN (${placeholders}) 
+       ORDER BY sort_rank ASC, created_at DESC`,
+      spaceUserIds
+    );
+    
     const items = rows.map((r) => {
       // Format photos array to match frontend expectations
       let photos = r.photos || [];
@@ -292,10 +358,14 @@ router.get("/media", async (_req: Request, res: Response) => {
   }
 });
 
-/** GET /api/media/:id — Get single media item */
-router.get("/media/:id", async (req: Request, res: Response) => {
+/** GET /api/media/:id — Get single media item for authenticated user */
+router.get("/media/:id", requireUserAuth, async (req: Request, res: Response) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM media_items WHERE id = $1", [req.params.id]);
+    const spaceUserId = await getSpaceUserIdFromRequest(req);
+    const { rows } = await pool.query(
+      "SELECT * FROM media_items WHERE id = $1 AND user_id = $2", 
+      [req.params.id, spaceUserId]
+    );
     if (rows.length === 0) {
       res.status(404).json({ ok: false, error: "Media item not found" });
       return;
@@ -364,6 +434,12 @@ router.put("/media/:id", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
     const updates: string[] = [];
     const values: unknown[] = [];
     let i = 1;
@@ -414,8 +490,16 @@ router.put("/media/:id", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    values.push(id);
-    await pool.query(`UPDATE media_items SET ${updates.join(", ")} WHERE id = $${i}`, values);
+    values.push(id, userId);
+    const result = await pool.query(
+      `UPDATE media_items SET ${updates.join(", ")} WHERE id = $${i} AND user_id = $${i + 1}`, 
+      values
+    );
+
+    if (result.rowCount === 0) {
+      res.status(404).json({ ok: false, error: "Media not found or access denied" });
+      return;
+    }
 
     res.json({ ok: true });
   } catch (error) {
@@ -428,13 +512,23 @@ router.put("/media/:id", requireAuth, async (req: Request, res: Response) => {
 router.delete("/media/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { rows } = await pool.query("SELECT id FROM media_items WHERE id = $1", [id]);
-    if (rows.length === 0) {
-      res.status(404).json({ ok: false, error: "Media item not found." });
+    
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
       return;
     }
 
-    await pool.query("DELETE FROM media_items WHERE id = $1", [id]);
+    const { rows } = await pool.query(
+      "SELECT id FROM media_items WHERE id = $1 AND user_id = $2", 
+      [id, userId]
+    );
+    if (rows.length === 0) {
+      res.status(404).json({ ok: false, error: "Media item not found or access denied" });
+      return;
+    }
+
+    await pool.query("DELETE FROM media_items WHERE id = $1 AND user_id = $2", [id, userId]);
     res.json({ ok: true });
   } catch (error) {
     console.error("Delete media error:", error);
@@ -448,18 +542,31 @@ router.post("/media/:mediaId/move", requireAuth, async (req: Request, res: Respo
     const { mediaId } = req.params;
     const { collectionId } = req.body;
 
-    const { rows: colRows } = await pool.query("SELECT name FROM collections WHERE id = $1", [
-      collectionId,
-    ]);
-    if (colRows.length === 0) {
-      res.status(404).json({ ok: false, error: "Target collection does not exist." });
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
       return;
     }
 
-    await pool.query("UPDATE media_items SET category = $1 WHERE id = $2", [
-      colRows[0].name,
-      mediaId,
-    ]);
+    const { rows: colRows } = await pool.query(
+      "SELECT name FROM collections WHERE id = $1 AND user_id = $2", 
+      [collectionId, userId]
+    );
+    if (colRows.length === 0) {
+      res.status(404).json({ ok: false, error: "Target collection does not exist or access denied" });
+      return;
+    }
+
+    const result = await pool.query(
+      "UPDATE media_items SET category = $1 WHERE id = $2 AND user_id = $3",
+      [colRows[0].name, mediaId, userId],
+    );
+
+    if (result.rowCount === 0) {
+      res.status(404).json({ ok: false, error: "Media not found or access denied" });
+      return;
+    }
+
     res.json({ ok: true });
   } catch (error) {
     console.error("Move media error:", error);
@@ -468,3 +575,4 @@ router.post("/media/:mediaId/move", requireAuth, async (req: Request, res: Respo
 });
 
 export default router;
+

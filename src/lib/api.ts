@@ -1,3 +1,5 @@
+import { getClerkSessionToken } from "@/lib/clerk-token";
+
 /**
  * API utility — works in browser (via Vite proxy in dev, same-origin in prod)
  * AND inside a Capacitor native app (must use absolute URL since there's no proxy).
@@ -76,6 +78,13 @@ function apiPath(endpoint: string): string {
   return BACKEND_URL ? `${BACKEND_URL}${path}` : path;
 }
 
+async function authHeaders(): Promise<HeadersInit> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = await getClerkSessionToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
 // ─── API client ───────────────────────────────────────────────────────────────
 
 export const api = {
@@ -86,7 +95,7 @@ export const api = {
     const response = await fetch(apiPath(endpoint), {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: data ? JSON.stringify(data) : undefined,
     });
 
@@ -111,7 +120,7 @@ export const api = {
     const response = await fetch(apiPath(endpoint), {
       method: "GET",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
     });
     if (!response.ok) {
       const body = await parseJsonBody<ApiErrorBody>(response);
@@ -124,7 +133,7 @@ export const api = {
     const response = await fetch(apiPath(endpoint), {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: data ? JSON.stringify(data) : undefined,
     });
     if (!response.ok) {
@@ -138,7 +147,7 @@ export const api = {
     const response = await fetch(apiPath(endpoint), {
       method: "PUT",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: data ? JSON.stringify(data) : undefined,
     });
     if (!response.ok) {
@@ -152,7 +161,7 @@ export const api = {
     const response = await fetch(apiPath(endpoint), {
       method: "DELETE",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
     });
     if (!response.ok) {
       const body = await parseJsonBody<ApiErrorBody>(response);
@@ -165,7 +174,7 @@ export const api = {
     const response = await fetch(apiPath(endpoint), {
       method: "PATCH",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: data ? JSON.stringify(data) : undefined,
     });
     if (!response.ok) {

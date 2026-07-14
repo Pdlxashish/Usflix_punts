@@ -1,7 +1,11 @@
 /**
  * Time Greetings routes — Good morning/afternoon/evening/night messages
- * GET /api/greetings/current  — public, get current greeting based on time
- * GET /api/greetings          — admin only, get all greetings
+ * 
+ * 🔒 SECURITY UPDATE: All routes now require user authentication
+ * and filter data by user_id to prevent data leakage.
+ * 
+ * GET /api/greetings/current  — requires user auth, returns only user's greetings
+ * GET /api/greetings          — admin only, returns admin user's greetings
  * POST /api/greetings         — admin only
  * PUT /api/greetings/:id      — admin only
  * DELETE /api/greetings/:id   — admin only
@@ -10,6 +14,8 @@ import { Router, Request, Response } from "express";
 import { randomUUID } from "crypto";
 import pool from "../db/connection.js";
 import { requireAuth } from "../middleware/auth.js";
+import { requireUserAuth } from "../middleware/userAuth.js";
+import { getSpaceUserIdFromRequest, getRequestUserId, resolveSpaceUserIds } from "../utils/tenant.js";
 
 const router = Router();
 
@@ -38,8 +44,11 @@ function getCurrentTimeOfDay(): string {
   return "night";
 }
 
-/** GET /api/greetings/current */
-router.get("/current", async (req: Request, res: Response) => {
+/**
+ * GET /api/greetings/current
+ * 🔒 NOW REQUIRES AUTH - Returns greeting from both partners' greetings
+ */
+router.get("/current", requireUserAuth, async (req: Request, res: Response) => {
   try {
     // Prefer client-supplied timeOfDay (browser local time) over server time
     const clientTimeOfDay = typeof req.query.timeOfDay === "string" ? req.query.timeOfDay : null;
@@ -47,9 +56,18 @@ router.get("/current", async (req: Request, res: Response) => {
     const timeOfDay = (clientTimeOfDay && validTimes.includes(clientTimeOfDay))
       ? clientTimeOfDay
       : getCurrentTimeOfDay();
+    
+    const userId = getRequestUserId(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+    
+    const spaceUserIds = await resolveSpaceUserIds(userId);
+    const placeholders = spaceUserIds.map((_, i) => `$${i + 2}`).join(',');
     const { rows } = await pool.query(
-      "SELECT * FROM time_greetings WHERE time_of_day=$1 AND is_active=true ORDER BY sort_rank ASC, created_at ASC",
-      [timeOfDay]
+      `SELECT * FROM time_greetings WHERE time_of_day=$1 AND is_active=true AND user_id IN (${placeholders}) ORDER BY sort_rank ASC, created_at ASC`,
+      [timeOfDay, ...spaceUserIds]
     );
     if (rows.length === 0) {
       // Default messages if none set
@@ -71,11 +89,22 @@ router.get("/current", async (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/greetings */
-router.get("/", requireAuth, async (_req: Request, res: Response) => {
+/**
+ * GET /api/greetings
+ * Admin gets all greetings for their user account
+ * 🔒 NOW FILTERS BY user_id
+ */
+router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+    
     const { rows } = await pool.query(
-      "SELECT * FROM time_greetings ORDER BY time_of_day, sort_rank ASC, created_at ASC"
+      "SELECT * FROM time_greetings WHERE user_id = $1 ORDER BY time_of_day, sort_rank ASC, created_at ASC",
+      [userId]
     );
     res.json(rows.map(mapRow));
   } catch (err: any) {
@@ -84,7 +113,11 @@ router.get("/", requireAuth, async (_req: Request, res: Response) => {
   }
 });
 
-/** POST /api/greetings */
+/**
+ * POST /api/greetings
+ * Admin creates greeting for their user account
+ * 🔒 NOW INCLUDES user_id in INSERT
+ */
 router.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const { timeOfDay, message, isActive, sortRank } = req.body;
@@ -96,11 +129,18 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       res.status(400).json({ ok: false, error: "Message is required" });
       return;
     }
+    
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+    
     const id = randomUUID();
     const { rows } = await pool.query(
-      `INSERT INTO time_greetings (id, time_of_day, message, is_active, sort_rank)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [id, timeOfDay, message.trim(), isActive ?? true, sortRank ?? 0]
+      `INSERT INTO time_greetings (id, user_id, time_of_day, message, is_active, sort_rank)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [id, userId, timeOfDay, message.trim(), isActive ?? true, sortRank ?? 0]
     );
     res.status(201).json({ ok: true, greeting: mapRow(rows[0]) });
   } catch (err: any) {
@@ -109,7 +149,11 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-/** PUT /api/greetings/:id */
+/**
+ * PUT /api/greetings/:id
+ * Admin updates greeting - only if it belongs to their user account
+ * 🔒 NOW FILTERS BY user_id in UPDATE
+ */
 router.put("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -122,13 +166,20 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
       res.status(400).json({ ok: false, error: "Message is required" });
       return;
     }
+    
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+    
     const { rows } = await pool.query(
       `UPDATE time_greetings SET time_of_day=$1, message=$2, is_active=$3, sort_rank=$4
-       WHERE id=$5 RETURNING *`,
-      [timeOfDay, message.trim(), isActive ?? true, sortRank ?? 0, id]
+       WHERE id=$5 AND user_id=$6 RETURNING *`,
+      [timeOfDay, message.trim(), isActive ?? true, sortRank ?? 0, id, userId]
     );
     if (rows.length === 0) {
-      res.status(404).json({ ok: false, error: "Greeting not found" });
+      res.status(404).json({ ok: false, error: "Greeting not found or access denied" });
       return;
     }
     res.json({ ok: true, greeting: mapRow(rows[0]) });
@@ -138,11 +189,28 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-/** DELETE /api/greetings/:id */
+/**
+ * DELETE /api/greetings/:id
+ * Admin deletes greeting - only if it belongs to their user account
+ * 🔒 NOW FILTERS BY user_id in DELETE
+ */
 router.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await pool.query("DELETE FROM time_greetings WHERE id=$1", [id]);
+    
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+    
+    const result = await pool.query("DELETE FROM time_greetings WHERE id=$1 AND user_id=$2", [id, userId]);
+    
+    if (result.rowCount === 0) {
+      res.status(404).json({ ok: false, error: "Greeting not found or access denied" });
+      return;
+    }
+    
     res.json({ ok: true });
   } catch (err: any) {
     console.error("greetings DELETE error:", err);

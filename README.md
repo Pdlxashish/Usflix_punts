@@ -87,9 +87,32 @@ Minimum backend production secrets:
 
 For Fly.io local upload storage, create the configured `usflix_uploads` volume before deploying.
 
-## Security notes
+## Security & Environment Variables
 
-- Never commit `.env` files or real deployment secrets.
-- Rotate any secret that was previously pasted into docs, terminal output, or source files.
-- Use HTTPS in production.
-- Use `COOKIE_SAME_SITE=none` only for split frontend/API domains, and only over HTTPS.
+**⚠️ IMPORTANT: Never commit sensitive data to git!**
+
+### Protected Files (Already in .gitignore)
+- `.env` and `backend/.env` - Contains API keys and secrets
+- `backend/uploads/` - User uploaded files
+- Any `*.pem`, `*.key`, or credential files
+
+### Setup Instructions
+1. Copy `.env.example` to `.env` (frontend)
+2. Copy `backend/.env.example` to `backend/.env` (backend)
+3. Fill in your actual API keys and secrets in these files
+4. **NEVER** commit the actual `.env` files
+
+### Required Environment Variables
+- `CLERK_SECRET_KEY` - Get from https://dashboard.clerk.com/
+- `VITE_CLERK_PUBLISHABLE_KEY` - Frontend Clerk key
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - Generate a strong random secret (32+ chars)
+- `USER_JWT_SECRET` - Different secret for user tokens
+- `ADMIN_USERNAME` and `ADMIN_PASSWORD` - Admin credentials
+
+### Security Best Practices
+- Never commit `.env` files or real deployment secrets
+- Rotate any secret that was previously exposed
+- Use HTTPS in production
+- Use `COOKIE_SAME_SITE=none` only for split frontend/API domains over HTTPS
+- Keep `uploads/` directory out of version control

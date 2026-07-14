@@ -1,16 +1,28 @@
 /**
  * Branding routes — GET/PUT for platform branding config.
+ * 
+ * 🔒 SECURITY UPDATE: All routes now require user authentication
+ * and filter data by user_id to prevent data leakage.
+ * 
+ * GET /api/branding — requires user auth, returns user's branding config
+ * PUT /api/branding — admin only, updates admin's user branding config
  */
 import { Router, Request, Response } from "express";
 import pool from "../db/connection.js";
 import { requireAuth } from "../middleware/auth.js";
+import { requireUserAuth } from "../middleware/userAuth.js";
+import { getSpaceUserIdFromRequest } from "../utils/tenant.js";
 
 const router = Router();
 
-/** GET /api/branding — Get current branding config */
-router.get("/", async (_req: Request, res: Response) => {
+/**
+ * GET /api/branding — Get current branding config
+ * 🔒 NOW REQUIRES AUTH - Returns only authenticated user's branding config
+ */
+router.get("/", requireUserAuth, async (req: Request, res: Response) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM branding WHERE id = 1");
+    const spaceUserId = await getSpaceUserIdFromRequest(req);
+    const { rows } = await pool.query("SELECT * FROM branding WHERE user_id = $1", [spaceUserId]);
 
     if (rows.length === 0) {
       // Return defaults if no branding config exists
@@ -74,7 +86,11 @@ router.get("/", async (_req: Request, res: Response) => {
   }
 });
 
-/** PUT /api/branding — Update branding config (admin only) */
+/**
+ * PUT /api/branding — Update branding config (admin only)
+ * Admin updates branding for their user account
+ * 🔒 NOW USES user_id as UPSERT key instead of id=1
+ */
 router.put("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const {
@@ -132,10 +148,16 @@ router.put("/", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    // Upsert — insert or update
+    const userId = await getSpaceUserIdFromRequest(req);
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Authentication required" });
+      return;
+    }
+
+    // Upsert — insert or update based on user_id
     await pool.query(
       `INSERT INTO branding (
-        id, platform_name, hero_tagline, hero_subtitle, footer_text,
+        user_id, platform_name, hero_tagline, hero_subtitle, footer_text,
         home_page_title, home_page_description, relationship_start_date,
         primary_color, accent_color, background_color,
         logo_url, favicon_url, heading_font, body_font,
@@ -143,19 +165,19 @@ router.put("/", requireAuth, async (req: Request, res: Response) => {
         background_image_url, background_pattern, background_gradient, hero_animation,
         profile_picture_url, profile_picture_shape, updated_at
       )
-       VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())
-       ON CONFLICT (id) DO UPDATE SET
-         platform_name = $1, hero_tagline = $2, hero_subtitle = $3,
-         footer_text = $4, home_page_title = $5, home_page_description = $6,
-         relationship_start_date = $7, primary_color = $8, accent_color = $9,
-         background_color = $10, logo_url = $11, favicon_url = $12,
-         heading_font = $13, body_font = $14, show_time_together_section = $15,
-         show_story_continues_section = $16, show_featured_section = $17,
-         background_image_url = $18, background_pattern = $19, background_gradient = $20,
-         hero_animation = $21, profile_picture_url = $22, profile_picture_shape = $23,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         platform_name = $2, hero_tagline = $3, hero_subtitle = $4,
+         footer_text = $5, home_page_title = $6, home_page_description = $7,
+         relationship_start_date = $8, primary_color = $9, accent_color = $10,
+         background_color = $11, logo_url = $12, favicon_url = $13,
+         heading_font = $14, body_font = $15, show_time_together_section = $16,
+         show_story_continues_section = $17, show_featured_section = $18,
+         background_image_url = $19, background_pattern = $20, background_gradient = $21,
+         hero_animation = $22, profile_picture_url = $23, profile_picture_shape = $24,
          updated_at = NOW()`,
       [
-        platformName, heroTagline, heroSubtitle, footerText, homePageTitle,
+        userId, platformName, heroTagline, heroSubtitle, footerText, homePageTitle,
         homePageDescription, relationshipStartDate, primaryColor, accentColor,
         backgroundColor, logoUrl, faviconUrl, headingFont, bodyFont,
         showTimeTogetherSection, showStoryContinuesSection, showFeaturedSection,

@@ -5,7 +5,12 @@
 import { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 
-import { isRateLimitDisabled } from "../config/auth.js";
+/** Off in development by default; production keeps limits unless DISABLE_RATE_LIMIT=true. */
+export function isRateLimitDisabled(): boolean {
+  if (process.env.DISABLE_RATE_LIMIT === "true") return true;
+  if (process.env.DISABLE_RATE_LIMIT === "false") return false;
+  return process.env.NODE_ENV !== "production";
+}
 
 const noopLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
 

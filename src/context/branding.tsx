@@ -3,6 +3,7 @@
  * Falls back to defaults if API is unreachable.
  */
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { useAuth } from "@clerk/tanstack-react-start";
 import { api } from "@/lib/api";
 
 export interface BrandingConfig {
@@ -80,15 +81,16 @@ const BrandingContext = createContext<BrandingContextValue | null>(null);
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
+  const { isSignedIn, isLoaded } = useAuth();
 
-  // Load from API on mount
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
     api.get<BrandingConfig>("/branding")
       .then((data) => setBranding(data))
       .catch(() => {
         // Fall back to defaults if API unavailable
       });
-  }, []);
+  }, [isLoaded, isSignedIn]);
 
   const saveBranding = async (next: BrandingConfig) => {
     // Client-side validation

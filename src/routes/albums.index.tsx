@@ -340,7 +340,7 @@ function AlbumsIndex() {
               href="/admin"
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-md font-medium hover:bg-primary/90 transition-colors shadow-[var(--shadow-glow)]"
             >
-              Go to Admin Panel
+              Go to Advanced Settings
             </a>
           )}
         </div>

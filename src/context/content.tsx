@@ -3,11 +3,10 @@
  * Manages Collections, Media_Items, and Hero Banners via REST endpoints.
  */
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { useAuth } from "@clerk/tanstack-react-start";
 import { api } from "@/lib/api";
+import { useProfile } from "@/context/profile";
 import {
-  collections as defaultCollections,
-  mediaItems as defaultMediaItems,
-  heroBanners as defaultHeroBanners,
   type Collection,
   type MediaItem,
   type HeroBanner,
@@ -51,12 +50,17 @@ interface Result {
 const ContentContext = createContext<ContentContextValue | null>(null);
 
 export function ContentProvider({ children }: { children: ReactNode }) {
-  const [collections, setCollections] = useState<Collection[]>(defaultCollections);
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>(defaultMediaItems);
-  const [heroBanners, setHeroBanners] = useState<HeroBanner[]>(defaultHeroBanners);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [heroBanners, setHeroBanners] = useState<HeroBanner[]>([]);
+  const { isSignedIn, isLoaded } = useAuth();
+  const { activeProfile, profilesReady, profiles } = useProfile();
 
-  // Load data from API on mount
+  const canFetch = isLoaded && isSignedIn && profilesReady && !!activeProfile;
+  const profileScopeKey = profiles.map((p) => p.id).join(",");
+
   const refreshData = useCallback(async () => {
+    if (!isLoaded || !isSignedIn || !profilesReady || !activeProfile) return;
     try {
       const [cols, media, banners] = await Promise.all([
         api.get<Collection[]>("/collections"),
@@ -67,13 +71,22 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       setMediaItems(media);
       setHeroBanners(banners);
     } catch (err) {
-      console.warn("Failed to load from API, using defaults:", err);
+      console.warn("Failed to load from API:", err);
+      setCollections([]);
+      setMediaItems([]);
+      setHeroBanners([]);
     }
-  }, []);
+  }, [isLoaded, isSignedIn, profilesReady, activeProfile]);
 
   useEffect(() => {
+    if (!canFetch) {
+      setCollections([]);
+      setMediaItems([]);
+      setHeroBanners([]);
+      return;
+    }
     refreshData();
-  }, [refreshData]);
+  }, [canFetch, refreshData, profileScopeKey]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 

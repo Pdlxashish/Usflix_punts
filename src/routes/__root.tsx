@@ -7,14 +7,15 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { ClerkProvider, useAuth } from "@clerk/tanstack-react-start";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { BrandingProvider } from "@/context/branding";
 import { BrandingStyles } from "@/components/site/BrandingStyles";
-import { AuthProvider } from "@/context/auth";
 import { ContentProvider } from "@/context/content";
-import { ProfileProvider, useProfile } from "@/context/profile";
+import { ProfileProvider } from "@/context/profile";
 import { HeartRainfallProvider, useHeartRainfall } from "@/context/heartRainfall";
+import { WebSocketProvider } from "@/context/websocket";
 import { HeartRainfall } from "@/components/effects/HeartRainfall";
 import { SmoothScroll } from "@/components/scroll/SmoothScroll";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -22,6 +23,9 @@ import { ThemeProvider } from "@/components/ui/ThemeToggle";
 import { useEffect, useRef } from "react";
 import { applyObjectFitPolyfill } from "@/utils/imageOptimization";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { AuthLoadingScreen } from "@/components/auth/AuthLoadingScreen";
+import { ClerkApiAuth } from "@/components/auth/ClerkApiAuth";
+import { useProfile } from "@/context/profile";
 
 import appCss from "../styles.css?url";
 
@@ -126,7 +130,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <ClerkProvider
+          publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
+        >
+          {children}
+        </ClerkProvider>
         <Scripts />
       </body>
     </html>
@@ -134,26 +142,64 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function AppLayout() {
-  const { activeProfile } = useProfile();
   const router = useRouter();
   const { active: heartRainfallActive } = useHeartRainfall();
+  const { isSignedIn, isLoaded } = useAuth();
+  const { activeProfile, profilesReady } = useProfile();
   const pageRef = useRef<HTMLDivElement>(null);
 
+  const path = router.state.location.pathname;
+  const isAdminRoute = path.startsWith("/admin");
+  const isSignInRoute = path === "/sign-in" || path.startsWith("/sign-in/");
+  const isSignUpRoute = path === "/sign-up" || path.startsWith("/sign-up/");
+  const isProfileSelectRoute = path === "/select-profile";
+  const isProfilesRoute = path === "/profiles";
+  const isJoinRoute = path === "/join" || path.startsWith("/invite/");
+  const isAuthRoute = isSignInRoute || isSignUpRoute;
+  const isProfileExempt = isProfileSelectRoute || isProfilesRoute || isAuthRoute || isJoinRoute;
+
   useEffect(() => {
-    // Only redirect if not on admin routes and not already on profiles
-    const path = router.state.location.pathname;
-    const isPublicRoute = !path.startsWith("/admin");
-    const isProfilesRoute = path === "/profiles";
+    if (!isLoaded || isAdminRoute) return;
 
-    if (isPublicRoute && !isProfilesRoute && !activeProfile) {
-      router.navigate({ to: "/profiles" });
+    if (!isSignedIn && !isAuthRoute && !isJoinRoute) {
+      router.navigate({ to: "/sign-in/$", params: { _splat: "" }, search: { redirect: undefined } });
     }
-  }, [activeProfile, router, router.state.location.pathname]);
+  }, [isLoaded, isSignedIn, isAdminRoute, isAuthRoute, isJoinRoute, router]);
 
-  const isProfilesRoute = router.state.location.pathname === "/profiles";
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || isProfileExempt || isAdminRoute) return;
+    if (profilesReady && !activeProfile) {
+      router.navigate({ to: "/select-profile" });
+    }
+  }, [isLoaded, isSignedIn, profilesReady, activeProfile, isProfileExempt, isAdminRoute, router]);
 
-  // Hide header/footer on the profile selection screen
-  if (isProfilesRoute) {
+  const awaitingAuth =
+    !isLoaded ||
+    (!isSignedIn && !isAuthRoute && !isJoinRoute && !isAdminRoute);
+
+  const awaitingProfile =
+    isLoaded &&
+    isSignedIn &&
+    !isAdminRoute &&
+    !isProfileExempt &&
+    (!profilesReady || !activeProfile);
+
+  // Block all routes (including exempt) until Clerk resolves
+  if (!isLoaded) {
+    return <AuthLoadingScreen message="Checking your session…" />;
+  }
+
+  if (awaitingAuth) {
+    return <AuthLoadingScreen message="Redirecting to sign in…" />;
+  }
+
+  // Signed-in users on protected routes must pick a profile first
+  if (awaitingProfile) {
+    return <AuthLoadingScreen message="Loading your profiles…" />;
+  }
+
+  // Hide chrome on auth and profile screens
+  if (isAuthRoute || isProfileSelectRoute || isProfilesRoute || isJoinRoute) {
     return <Outlet />;
   }
 
@@ -198,11 +244,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ClerkApiAuth />
       <SmoothScroll>
         <ThemeProvider>
           <ToastProvider>
-            <AuthProvider>
-              <ProfileProvider>
+            <ProfileProvider>
+              <WebSocketProvider>
                 <HeartRainfallProvider>
                   <ContentProvider>
                     <BrandingProvider>
@@ -212,8 +259,8 @@ function RootComponent() {
                     </BrandingProvider>
                   </ContentProvider>
                 </HeartRainfallProvider>
-              </ProfileProvider>
-            </AuthProvider>
+              </WebSocketProvider>
+            </ProfileProvider>
           </ToastProvider>
         </ThemeProvider>
       </SmoothScroll>

@@ -1,8 +1,17 @@
 /**
  * Profile context — uses backend API for My List and Comments.
- * Active profile selection stays in localStorage (client-only concern).
+ * Active profile is chosen on /select-profile; not auto-restored on fresh login.
  */
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { useAuth } from "@clerk/tanstack-react-start";
 import { api } from "@/lib/api";
 import { getClientId, logViewerActivity } from "@/lib/activity";
 
@@ -13,13 +22,9 @@ export interface Profile {
   profile_picture_url?: string | null;
   avatar_shape?: string | null;
   birthday?: string | null;
+  is_primary?: boolean;
+  role?: "self" | "partner";
 }
-
-export const DEFAULT_PROFILES: Profile[] = [
-  { id: "p1", name: "You", color: "bg-blue-500" },
-  { id: "p2", name: "Me", color: "bg-rose-500" },
-  { id: "p3", name: "Us", color: "bg-purple-500" },
-];
 
 export interface Comment {
   id: string;
@@ -33,7 +38,9 @@ export interface Comment {
 interface ProfileContextValue {
   profiles: Profile[];
   activeProfile: Profile | null;
+  profilesReady: boolean;
   setActiveProfile: (profile: Profile | null) => void;
+  refreshProfiles: () => Promise<void>;
   myList: string[];
   toggleMyList: (mediaId: string) => void;
   isInMyList: (mediaId: string) => boolean;
@@ -48,70 +55,134 @@ interface ProfileContextValue {
     avatarShape: string,
     birthday: string | null
   ) => Promise<{ ok: boolean; error?: string }>;
+  isGoogleUser: boolean;
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 const STORAGE_KEY_ACTIVE = "usflix_active_profile";
+const SESSION_PROFILE_KEY = "usflix_profile_selected_session";
 
-export function ProfileProvider({ children }: { children: ReactNode }) {
-  const [profiles, setProfiles] = useState<Profile[]>(DEFAULT_PROFILES);
+interface ProfileProviderProps {
+  children: ReactNode;
+  googleUserProfile?: Profile | null;
+  isGoogleUser?: boolean;
+}
+
+export function ProfileProvider({
+  children,
+  googleUserProfile = null,
+  isGoogleUser = false,
+}: ProfileProviderProps) {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [activeProfile, setActiveProfileState] = useState<Profile | null>(null);
+  const [profilesReady, setProfilesReady] = useState(false);
   const [myList, setMyList] = useState<string[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const { isSignedIn, isLoaded } = useAuth();
+  const wasSignedIn = useRef(false);
 
-  // Load profiles from API
-  useEffect(() => {
-    api.get<Profile[] | { ok?: boolean }>("/profiles")
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) setProfiles(data);
-      })
-      .catch(() => { /* keep defaults */ });
+  const refreshProfiles = useCallback(async () => {
+    const data = await api.get<Profile[]>("/profiles");
+    const list = Array.isArray(data) ? data : [];
+    setProfiles(list);
+    return;
   }, []);
 
-  // Hydrate active profile from localStorage
+  // Load profiles once Clerk auth is resolved
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(STORAGE_KEY_ACTIVE);
-      if (stored) {
-        try {
-          const profile: Profile = JSON.parse(stored);
-          setActiveProfileState(profile);
-          logViewerActivity("profile_selected", profile.id, {
-            profileName: profile.name,
-            restored: true,
-          });
-        } catch { /* ignore */ }
-      }
+    if (!isLoaded) {
+      setProfilesReady(false);
+      return;
     }
-  }, []);
 
-  // Load my list when active profile changes
+    if (!isSignedIn) {
+      setProfiles([]);
+      setActiveProfileState(null);
+      setProfilesReady(true);
+      wasSignedIn.current = false;
+      sessionStorage.removeItem(SESSION_PROFILE_KEY);
+      return;
+    }
+
+    const freshLogin = !wasSignedIn.current;
+    wasSignedIn.current = true;
+
+    if (freshLogin) {
+      // New login session — require profile selection before dashboard
+      setActiveProfileState(null);
+      localStorage.removeItem(STORAGE_KEY_ACTIVE);
+      sessionStorage.removeItem(SESSION_PROFILE_KEY);
+    }
+
+    setProfilesReady(false);
+    refreshProfiles()
+      .then(() => {
+        if (!freshLogin && sessionStorage.getItem(SESSION_PROFILE_KEY)) {
+          try {
+            const stored = localStorage.getItem(STORAGE_KEY_ACTIVE);
+            if (stored) {
+              const parsed = JSON.parse(stored) as Profile;
+              setProfiles((list) => {
+                const match = list.find((p) => p.id === parsed.id);
+                if (match) setActiveProfileState(match);
+                return list;
+              });
+            }
+          } catch {
+            localStorage.removeItem(STORAGE_KEY_ACTIVE);
+          }
+        }
+      })
+      .catch(() => setProfiles([]))
+      .finally(() => setProfilesReady(true));
+  }, [isLoaded, isSignedIn, refreshProfiles]);
+
+  // Legacy Google auto-profile path (unused with Clerk, kept for compatibility)
   useEffect(() => {
-    if (!activeProfile) { setMyList([]); return; }
-    api.get<string[]>(`/profiles/${activeProfile.id}/list`)
+    if (isGoogleUser && googleUserProfile) {
+      setActiveProfileState(googleUserProfile);
+      localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(googleUserProfile));
+      sessionStorage.setItem(SESSION_PROFILE_KEY, "1");
+      logViewerActivity("profile_selected", googleUserProfile.id, {
+        profileName: googleUserProfile.name,
+        restored: true,
+        googleUser: true,
+      });
+    }
+  }, [isGoogleUser, googleUserProfile]);
+
+  useEffect(() => {
+    if (!activeProfile) {
+      setMyList([]);
+      return;
+    }
+    api
+      .get<string[]>(`/profiles/${activeProfile.id}/list`)
       .then(setMyList)
       .catch(() => setMyList([]));
   }, [activeProfile]);
 
-  // Load all comments on mount
   useEffect(() => {
-    api.get<Comment[]>("/comments")
+    if (!activeProfile) return;
+    api
+      .get<Comment[]>("/comments")
       .then(setComments)
-      .catch(() => { /* keep empty */ });
-  }, []);
+      .catch(() => {});
+  }, [activeProfile?.id]);
 
   const setActiveProfile = (profile: Profile | null) => {
     setActiveProfileState(profile);
     if (profile) {
       localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(profile));
+      sessionStorage.setItem(SESSION_PROFILE_KEY, "1");
       logViewerActivity("profile_selected", profile.id, { profileName: profile.name });
     } else {
       localStorage.removeItem(STORAGE_KEY_ACTIVE);
+      sessionStorage.removeItem(SESSION_PROFILE_KEY);
     }
   };
 
-  // Keep session alive while a profile is active
   useEffect(() => {
     if (!activeProfile) return;
     logViewerActivity("profile_heartbeat", activeProfile.id, { profileName: activeProfile.name });
@@ -124,17 +195,17 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const toggleMyList = async (mediaId: string) => {
     if (!activeProfile) return;
     const isIn = myList.includes(mediaId);
-    // Optimistic update
-    setMyList((prev) => isIn ? prev.filter((id) => id !== mediaId) : [...prev, mediaId]);
+    setMyList((prev) => (isIn ? prev.filter((id) => id !== mediaId) : [...prev, mediaId]));
     try {
       if (isIn) {
-        await api.delete(`/profiles/${activeProfile.id}/list/${mediaId}?clientId=${encodeURIComponent(getClientId())}`);
+        await api.delete(
+          `/profiles/${activeProfile.id}/list/${mediaId}?clientId=${encodeURIComponent(getClientId())}`
+        );
       } else {
         await api.post(`/profiles/${activeProfile.id}/list`, { mediaId, clientId: getClientId() });
       }
     } catch {
-      // Revert on error
-      setMyList((prev) => isIn ? [...prev, mediaId] : prev.filter((id) => id !== mediaId));
+      setMyList((prev) => (isIn ? [...prev, mediaId] : prev.filter((id) => id !== mediaId)));
     }
   };
 
@@ -144,33 +215,38 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     if (!activeProfile || !text.trim()) return;
     const tempId = `comment-${Date.now()}`;
     const newComment: Comment = {
-      id: tempId, mediaId, profileId: activeProfile.id,
-      text: text.trim(), timestamp: Date.now(), videoTime,
+      id: tempId,
+      mediaId,
+      profileId: activeProfile.id,
+      text: text.trim(),
+      timestamp: Date.now(),
+      videoTime,
     };
-    // Optimistic update
     setComments((prev) => [...prev, newComment]);
     try {
       const result = await api.post<{ ok: boolean; id: string; timestamp: number }>("/comments", {
-        mediaId, profileId: activeProfile.id, text: text.trim(), videoTime, clientId: getClientId(),
+        mediaId,
+        profileId: activeProfile.id,
+        text: text.trim(),
+        videoTime,
+        clientId: getClientId(),
       });
-      // Update with real ID
-      setComments((prev) => prev.map((c) =>
-        c.id === tempId ? { ...c, id: result.id, timestamp: result.timestamp } : c
-      ));
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === tempId ? { ...c, id: result.id, timestamp: result.timestamp } : c
+        )
+      );
     } catch {
-      // Revert on error
       setComments((prev) => prev.filter((c) => c.id !== tempId));
     }
   };
 
   const deleteComment = async (id: string) => {
     const comment = comments.find((c) => c.id === id);
-    // Optimistic update
     setComments((prev) => prev.filter((c) => c.id !== id));
     try {
       await api.delete(`/comments/${id}?clientId=${encodeURIComponent(getClientId())}`);
     } catch {
-      // Revert
       if (comment) setComments((prev) => [...prev, comment]);
     }
   };
@@ -184,7 +260,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     birthday: string | null
   ) => {
     try {
-      const response = await api.put<{ ok: boolean }>(`/profiles/${id}`, {
+      const response = await api.patch<{ ok: boolean }>(`/profiles/${id}`, {
         name,
         color,
         profilePictureUrl,
@@ -194,26 +270,40 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const updated = await api.get<Profile[]>("/profiles");
         setProfiles(updated);
-        if (activeProfile && activeProfile.id === id) {
+        if (activeProfile?.id === id) {
           const matched = updated.find((p) => p.id === id);
           if (matched) setActiveProfile(matched);
         }
         return { ok: true };
       }
       return { ok: false, error: "Failed to update profile" };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      return { ok: false, error: err.message || "Failed to update profile" };
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : "Failed to update profile",
+      };
     }
   };
 
   return (
-    <ProfileContext.Provider value={{
-      profiles, activeProfile, setActiveProfile,
-      myList, toggleMyList, isInMyList,
-      comments, addComment, deleteComment,
-      updateProfile,
-    }}>
+    <ProfileContext.Provider
+      value={{
+        profiles,
+        activeProfile,
+        profilesReady,
+        setActiveProfile,
+        refreshProfiles,
+        myList,
+        toggleMyList,
+        isInMyList,
+        comments,
+        addComment,
+        deleteComment,
+        updateProfile,
+        isGoogleUser,
+      }}
+    >
       {children}
     </ProfileContext.Provider>
   );

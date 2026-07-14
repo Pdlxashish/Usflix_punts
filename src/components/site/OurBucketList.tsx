@@ -2,11 +2,13 @@
  * Our Bucket List — A checklist of things you want to do together.
  * Items can be checked off with a confetti animation.
  * Unchecked items show as dreams, checked ones show as memories.
+ * 🔄 Now with REAL-TIME UPDATES via WebSocket!
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CheckCircle2, Circle, Sparkles } from "lucide-react";
 import { fetchApiJson } from "@/lib/fetchApi";
 import { useHeartRainfall } from "@/context/heartRainfall";
+import { useWebSocketEvent } from "@/context/websocket";
 import confetti from "canvas-confetti";
 
 interface BucketListItem {
@@ -37,6 +39,49 @@ export function OurBucketList() {
     fetchItems();
   }, []);
 
+  // 🔄 REAL-TIME UPDATE: Listen for partner toggling items
+  useWebSocketEvent("bucketlist:toggled", useCallback((data: any) => {
+    console.log("Bucket list item toggled by partner:", data);
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === data.id
+          ? { ...item, completed: data.completed, completedAt: data.completedAt }
+          : item
+      )
+    );
+  }, []));
+
+  // 🔄 REAL-TIME UPDATE: Listen for partner adding items
+  useWebSocketEvent("bucketlist:added", useCallback((data: any) => {
+    console.log("New bucket list item added by partner:", data);
+    setItems((prev) => [...prev, {
+      id: data.id,
+      item: data.item,
+      emoji: data.emoji,
+      completed: data.completed,
+      completedAt: null,
+      sortRank: data.sortRank,
+    }]);
+  }, []));
+
+  // 🔄 REAL-TIME UPDATE: Listen for partner updating items
+  useWebSocketEvent("bucketlist:updated", useCallback((data: any) => {
+    console.log("Bucket list item updated by partner:", data);
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === data.id
+          ? { ...item, item: data.item, emoji: data.emoji, sortRank: data.sortRank }
+          : item
+      )
+    );
+  }, []));
+
+  // 🔄 REAL-TIME UPDATE: Listen for partner deleting items
+  useWebSocketEvent("bucketlist:deleted", useCallback((data: any) => {
+    console.log("Bucket list item deleted by partner:", data);
+    setItems((prev) => prev.filter((item) => item.id !== data.id));
+  }, []));
+
   const handleToggle = async (id: string, e: React.MouseEvent) => {
     const item = items.find((i) => i.id === id);
     if (!item) return;
@@ -62,14 +107,15 @@ export function OurBucketList() {
       triggerHeartBurst({ clientX: e.clientX, clientY: e.clientY });
     }
 
-    // Sync with backend (no auth required for public toggle)
+    // Sync with backend (WITH AUTHENTICATION)
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/bucket-list/${id}/toggle`, {
+      console.log("[BUCKET LIST] Toggling item:", id);
+      await fetchApiJson(`/bucket-list/${id}/toggle`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
       });
+      console.log("[BUCKET LIST] Toggle successful, backend will broadcast to partner");
     } catch (error) {
-      console.error("Failed to toggle bucket list item:", error);
+      console.error("[BUCKET LIST] Failed to toggle bucket list item:", error);
       // Revert on error
       setItems((prev) =>
         prev.map((i) => (i.id === id ? item : i))
