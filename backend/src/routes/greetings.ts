@@ -46,7 +46,7 @@ function getCurrentTimeOfDay(): string {
 
 /**
  * GET /api/greetings/current
- * 🔒 NOW REQUIRES AUTH - Returns greeting from both partners' greetings
+ * 🔒 NOW REQUIRES AUTH - Returns greeting created by PARTNER (not self)
  */
 router.get("/current", requireUserAuth, async (req: Request, res: Response) => {
   try {
@@ -64,13 +64,12 @@ router.get("/current", requireUserAuth, async (req: Request, res: Response) => {
     }
     
     const spaceUserIds = await resolveSpaceUserIds(userId);
-    const placeholders = spaceUserIds.map((_, i) => `$${i + 2}`).join(',');
-    const { rows } = await pool.query(
-      `SELECT * FROM time_greetings WHERE time_of_day=$1 AND is_active=true AND user_id IN (${placeholders}) ORDER BY sort_rank ASC, created_at ASC`,
-      [timeOfDay, ...spaceUserIds]
-    );
-    if (rows.length === 0) {
-      // Default messages if none set
+    
+    // Get greetings created by PARTNER only (exclude own greetings)
+    const partnerIds = spaceUserIds.filter(id => id !== userId);
+    
+    if (partnerIds.length === 0) {
+      // No partner, show default
       const defaults: Record<string, string> = {
         morning: "Good morning, sunshine! ☀️",
         afternoon: "Hope you're having a wonderful afternoon! 💕",
@@ -80,9 +79,39 @@ router.get("/current", requireUserAuth, async (req: Request, res: Response) => {
       res.json({ timeOfDay, message: defaults[timeOfDay] || "Hello! 💕", isDefault: true });
       return;
     }
+    
+    const placeholders = partnerIds.map((_, i) => `$${i + 2}`).join(',');
+    
+    // Join with profiles to get creator's name (partner's name)
+    const { rows } = await pool.query(
+      `SELECT tg.*, p.name as creator_name 
+       FROM time_greetings tg
+       LEFT JOIN profiles p ON p.user_id = tg.user_id AND p.is_primary = true
+       WHERE tg.time_of_day=$1 AND tg.is_active=true AND tg.user_id IN (${placeholders}) 
+       ORDER BY tg.sort_rank ASC, tg.created_at ASC`,
+      [timeOfDay, ...partnerIds]
+    );
+    
+    if (rows.length === 0) {
+      // Default messages if none set by partner
+      const defaults: Record<string, string> = {
+        morning: "Good morning, sunshine! ☀️",
+        afternoon: "Hope you're having a wonderful afternoon! 💕",
+        evening: "Good evening, beautiful! 🌅",
+        night: "Sweet dreams, my love! 🌙",
+      };
+      res.json({ timeOfDay, message: defaults[timeOfDay] || "Hello! 💕", isDefault: true });
+      return;
+    }
+    
     // Pick a random one if multiple
     const greeting = rows[Math.floor(Math.random() * rows.length)];
-    res.json({ ...mapRow(greeting), timeOfDay, isDefault: false });
+    res.json({ 
+      ...mapRow(greeting), 
+      timeOfDay, 
+      isDefault: false,
+      creatorName: greeting.creator_name || null
+    });
   } catch (err: any) {
     console.error("greetings current GET error:", err);
     res.status(500).json({ ok: false, error: migrationError(err) || "Failed to fetch greeting" });

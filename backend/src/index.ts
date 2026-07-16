@@ -140,12 +140,20 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
 // Serve uploaded files — supports /uploads/file AND /uploads/{userId}/file
+// Also serves at /api/uploads for compatibility with fetchApiJson
 const uploadDir = process.env.UPLOAD_DIR || "./uploads";
-app.use("/uploads", express.static(path.resolve(uploadDir), { fallthrough: true }));
+const uploadStatic = express.static(path.resolve(uploadDir), { fallthrough: true });
+
+app.use("/uploads", uploadStatic);
+app.use("/api/uploads", uploadStatic);
+
 // Serve per-user subdirectories dynamically
-app.use("/uploads/:userId", (req, res, next) => {
+const createUserUploadMiddleware = (req: any, res: any, next: any) => {
   express.static(path.join(path.resolve(uploadDir), req.params.userId))(req, res, next);
-});
+};
+
+app.use("/uploads/:userId", createUserUploadMiddleware);
+app.use("/api/uploads/:userId", createUserUploadMiddleware);
 
 // ─── API Routes ──────────────────────────────────────────────────────────────
 
@@ -197,6 +205,11 @@ app.get("/api/health", async (_req, res) => {
   } catch {
     res.status(503).json({ ok: false, error: "Database unavailable" });
   }
+});
+
+// Legacy redirect for /today -> /api/mood-of-day/today
+app.get("/today", (_req, res) => {
+  res.redirect(301, "/api/mood-of-day/today");
 });
 
 // ─── Error Handler ────────────────────────────────────────────────────────────

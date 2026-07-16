@@ -311,11 +311,12 @@ router.get("/media", requireUserAuth, async (req: Request, res: Response) => {
     const spaceUserIds = await resolveSpaceUserIds(userId);
     
     // Fetch media for ALL users in the couple space
+    // ORDER BY: Recently created items first (prioritize new uploads), then by sort_rank for manual ordering
     const placeholders = spaceUserIds.map((_, i) => `$${i + 1}`).join(',');
     const { rows } = await pool.query(
       `SELECT * FROM media_items 
        WHERE user_id IN (${placeholders}) 
-       ORDER BY sort_rank ASC, created_at DESC`,
+       ORDER BY created_at DESC, sort_rank ASC`,
       spaceUserIds
     );
     
@@ -349,6 +350,8 @@ router.get("/media", requireUserAuth, async (req: Request, res: Response) => {
         status: r.status,
         featured: r.featured || false,
         createdAt: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+        // Flag items uploaded in the last 24 hours as "new"
+        isNew: r.created_at && (Date.now() - new Date(r.created_at).getTime()) < 24 * 60 * 60 * 1000,
       };
     });
     res.json(items);

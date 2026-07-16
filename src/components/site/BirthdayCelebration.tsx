@@ -17,10 +17,11 @@ import {
   REMINDER_DAYS,
   yearProgressUntilBirthday,
 } from "@/lib/birthday";
+import { getDashboardSetting, saveDashboardSetting } from "@/lib/dashboard-settings";
 
-const STORAGE_REMINDERS = "usflix_birthday_reminders";
-const STORAGE_NOTIFIED = "usflix_birthday_notified";
-const STORAGE_BIRTHDAY_MODAL = "usflix_birthday_modal_shown";
+const STORAGE_REMINDERS = "birthdayRemindersEnabled";
+const STORAGE_NOTIFIED = "birthdayNotifications";
+const STORAGE_BIRTHDAY_MODAL = "birthdayModalShown";
 
 function avatarShapeClass(shape?: string | null): string {
   if (shape === "circle") return "rounded-full";
@@ -36,7 +37,8 @@ function pushNotification(title: string, body: string) {
 
 function loadRemindersEnabled(): boolean {
   try {
-    return localStorage.getItem(STORAGE_REMINDERS) !== "off";
+    const setting = getDashboardSetting(STORAGE_REMINDERS as any);
+    return setting !== false; // Default to true
   } catch {
     return true;
   }
@@ -49,9 +51,11 @@ function notifiedKey(profileId: string, kind: string): string {
 
 function wasNotified(profileId: string, kind: string): boolean {
   try {
-    const raw = localStorage.getItem(STORAGE_NOTIFIED);
-    const set: string[] = raw ? JSON.parse(raw) : [];
-    return set.includes(notifiedKey(profileId, kind));
+    const notifications = getDashboardSetting(STORAGE_NOTIFIED as any) as Record<string, string[]> | undefined;
+    if (!notifications) return false;
+    
+    const key = notifiedKey(profileId, kind);
+    return Object.values(notifications).flat().includes(key);
   } catch {
     return false;
   }
@@ -59,13 +63,20 @@ function wasNotified(profileId: string, kind: string): boolean {
 
 function markNotified(profileId: string, kind: string) {
   try {
-    const raw = localStorage.getItem(STORAGE_NOTIFIED);
-    const set: string[] = raw ? JSON.parse(raw) : [];
+    const notifications = (getDashboardSetting(STORAGE_NOTIFIED as any) as Record<string, string[]>) || {};
     const key = notifiedKey(profileId, kind);
-    if (!set.includes(key)) {
-      set.push(key);
-      localStorage.setItem(STORAGE_NOTIFIED, JSON.stringify(set.slice(-80)));
+    
+    if (!notifications[profileId]) {
+      notifications[profileId] = [];
     }
+    
+    if (!notifications[profileId].includes(key)) {
+      notifications[profileId].push(key);
+      // Keep only the last 20 notifications per profile
+      notifications[profileId] = notifications[profileId].slice(-20);
+    }
+    
+    saveDashboardSetting(STORAGE_NOTIFIED as any, notifications);
   } catch { /* ignore */ }
 }
 
@@ -410,9 +421,10 @@ export function BirthdayCelebration() {
     const todayEntry = entries.find((e) => e.isToday);
     if (!todayEntry) return;
 
-    // Check if modal was already shown today
+    // Check if modal was already shown today using dashboard settings
     const today = new Date().toDateString();
-    const lastShown = localStorage.getItem(`${STORAGE_BIRTHDAY_MODAL}_${todayEntry.profile.id}`);
+    const modalData = getDashboardSetting(STORAGE_BIRTHDAY_MODAL as any) as Record<string, string> | undefined;
+    const lastShown = modalData?.[todayEntry.profile.id];
     
     if (lastShown === today) return;
 
@@ -421,7 +433,10 @@ export function BirthdayCelebration() {
       setBirthdayModalEntry(todayEntry);
       setShowBirthdayModal(true);
       modalShownRef.current = true;
-      localStorage.setItem(`${STORAGE_BIRTHDAY_MODAL}_${todayEntry.profile.id}`, today);
+      
+      // Save using dashboard settings
+      const updatedModalData = { ...modalData, [todayEntry.profile.id]: today };
+      saveDashboardSetting(STORAGE_BIRTHDAY_MODAL as any, updatedModalData);
     }, 1000);
 
     return () => clearTimeout(timer);
@@ -471,7 +486,7 @@ export function BirthdayCelebration() {
   const toggleReminders = () => {
     const next = !remindersOn;
     setRemindersOn(next);
-    localStorage.setItem(STORAGE_REMINDERS, next ? "on" : "off");
+    saveDashboardSetting(STORAGE_REMINDERS as any, next);
     toast.success(next ? "Birthday reminders on" : "Birthday reminders off");
   };
 

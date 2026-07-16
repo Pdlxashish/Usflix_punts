@@ -1,13 +1,16 @@
 /**
  * BrandingStyles — Dynamically applies branding CSS variables and fonts
+ * Supports both image and video backgrounds
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useBranding } from "@/context/branding";
 import { useTheme } from "@/components/ui/ThemeToggle";
+import { getMediaUrl } from "@/lib/api";
 
 export function BrandingStyles() {
   const { branding } = useBranding();
   const { actualTheme } = useTheme();
+  const [isVideo, setIsVideo] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -46,12 +49,24 @@ export function BrandingStyles() {
     // Apply background styling (works in both light and dark mode)
     const body = document.body;
     
+    // Check if background is a video
+    const bgUrl = branding.backgroundImageUrl;
+    const isVideoFile = bgUrl && /\.(mp4|mov|webm|ogg)$/i.test(bgUrl);
+    setIsVideo(isVideoFile);
+    
     // Reset background
     body.style.backgroundImage = "";
     body.style.backgroundSize = "";
     body.style.backgroundPosition = "";
     body.style.backgroundAttachment = "";
     body.style.backgroundRepeat = "";
+    
+    // If it's a video, we'll render it as a video element, not background-image
+    if (isVideoFile) {
+      // Don't apply video as background-image
+      // Video will be rendered as JSX element below
+      return;
+    }
     
     const layers: string[] = [];
 
@@ -85,11 +100,9 @@ export function BrandingStyles() {
       }
     }
 
-    // Apply background image or video
-    if (branding.backgroundImageUrl) {
-      const imageUrl = branding.backgroundImageUrl.startsWith("http")
-        ? branding.backgroundImageUrl
-        : `/api${branding.backgroundImageUrl}`;
+    // Apply background image (only if not a video)
+    if (bgUrl && !isVideoFile) {
+      const imageUrl = bgUrl.startsWith("http") ? bgUrl : getMediaUrl(bgUrl);
       layers.push(`url(${imageUrl})`);
     }
 
@@ -156,5 +169,66 @@ export function BrandingStyles() {
     };
   }, [branding, actualTheme]);
 
-  return null; // This component doesn't render anything
+  // Render video background if applicable
+  const bgUrl = branding.backgroundImageUrl;
+  const isVideoFile = bgUrl && /\.(mp4|mov|webm|ogg)$/i.test(bgUrl);
+  
+  if (isVideoFile) {
+    const videoUrl = bgUrl.startsWith("http") ? bgUrl : getMediaUrl(bgUrl);
+    const isDark = actualTheme === "dark";
+    const patternOpacity = isDark ? 0.05 : 0.1;
+    const patternColor = isDark ? "255,255,255" : "0,0,0";
+    
+    return (
+      <>
+        {/* Video background */}
+        <video
+          key={videoUrl}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="fixed inset-0 w-full h-full object-cover -z-50"
+          style={{ pointerEvents: 'none' }}
+        >
+          <source src={videoUrl} type={`video/${bgUrl.split('.').pop()?.toLowerCase()}`} />
+        </video>
+        
+        {/* Pattern overlay on top of video */}
+        {branding.backgroundPattern && branding.backgroundPattern !== "none" && (
+          <div 
+            className="fixed inset-0 -z-40 pointer-events-none"
+            style={{
+              backgroundImage: branding.backgroundPattern === "dots"
+                ? `radial-gradient(circle, rgba(${patternColor},${patternOpacity}) 1px, transparent 1px)`
+                : branding.backgroundPattern === "grid"
+                  ? `linear-gradient(rgba(${patternColor},${patternOpacity}) 1px, transparent 1px), linear-gradient(90deg, rgba(${patternColor},${patternOpacity}) 1px, transparent 1px)`
+                  : branding.backgroundPattern === "diagonal-lines"
+                    ? `repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(${patternColor},${patternOpacity}) 10px, rgba(${patternColor},${patternOpacity}) 20px)`
+                    : branding.backgroundPattern === "circles"
+                      ? `radial-gradient(circle at 20% 50%, rgba(${patternColor},${patternOpacity}) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(${patternColor},${patternOpacity}) 0%, transparent 50%)`
+                      : branding.backgroundPattern === "waves"
+                        ? `repeating-radial-gradient(circle at 0 0, transparent 0, rgba(${patternColor},${patternOpacity}) 10px, transparent 20px)`
+                        : undefined,
+              backgroundSize: branding.backgroundPattern === "grid" || branding.backgroundPattern === "dots" 
+                ? "20px 20px" 
+                : "cover",
+            }}
+          />
+        )}
+        
+        {/* Gradient overlay on top of video */}
+        {branding.backgroundGradient && branding.backgroundGradient !== "none" && (
+          <div 
+            className="fixed inset-0 -z-30 pointer-events-none"
+            style={{
+              backgroundImage: branding.backgroundGradient,
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  return null; // This component doesn't render anything for image backgrounds
 }

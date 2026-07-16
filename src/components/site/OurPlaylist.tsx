@@ -29,8 +29,14 @@ function extractYouTubeId(url: string): string | null {
 }
 
 function SongCard({ song }: { song: Song }) {
+  const [showEmbed, setShowEmbed] = useState(false);
   const spotifyId = song.spotifyUrl ? extractSpotifyId(song.spotifyUrl) : null;
   const youtubeId = song.youtubeUrl ? extractYouTubeId(song.youtubeUrl) : null;
+  
+  // Get YouTube thumbnail URL (maxresdefault for best quality, fallback to hqdefault)
+  const youtubeThumbnail = youtubeId 
+    ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
+    : null;
 
   return (
     <div
@@ -85,17 +91,50 @@ function SongCard({ song }: { song: Song }) {
           </div>
         )}
         {youtubeId && (
-          <div className="aspect-video rounded-lg overflow-hidden">
-            <iframe
-              src={`https://www.youtube.com/embed/${youtubeId}`}
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              loading="lazy"
-              title={`YouTube: ${song.title}`}
-            />
+          <div className="aspect-video rounded-lg overflow-hidden relative bg-black">
+            {!showEmbed && youtubeThumbnail ? (
+              <button
+                onClick={() => setShowEmbed(true)}
+                className="relative w-full h-full group cursor-pointer"
+                aria-label={`Play ${song.title} on YouTube`}
+              >
+                <img
+                  src={youtubeThumbnail}
+                  alt={`${song.title} thumbnail`}
+                  className="w-full h-full object-cover rounded-lg"
+                />
+                {/* Play button overlay */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/50 transition-colors">
+                  <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                    <svg
+                      className="w-8 h-8 text-white ml-1"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+                {/* Video title overlay */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                  <p className="text-white text-sm font-medium line-clamp-2">{song.title}</p>
+                  {song.artist && (
+                    <p className="text-white/80 text-xs mt-0.5">{song.artist}</p>
+                  )}
+                </div>
+              </button>
+            ) : (
+              <iframe
+                key={youtubeId}
+                src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0&modestbranding=1`}
+                className="w-full h-full rounded-lg"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
+                title={`YouTube: ${song.title}`}
+              />
+            )}
           </div>
         )}
         {!spotifyId && !youtubeId && (

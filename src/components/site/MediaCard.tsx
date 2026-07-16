@@ -137,8 +137,8 @@ export function MediaCard({
       {/* Thumbnail or placeholder */}
       {item.type === "video" && item.videoUrl ? (
         <>
-          {/* Thumbnail image - always visible */}
-          {item.thumbnail && (
+          {/* Thumbnail image - always visible as primary display */}
+          {item.thumbnail ? (
             <img
               src={getMediaUrl(item.thumbnail)}
               alt={item.title}
@@ -147,34 +147,40 @@ export function MediaCard({
               height="435"
               decoding="async"
               style={{ objectFit: 'cover' }}
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 group-hover/card:opacity-0"
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
               onError={(e) => {
                 console.error('Failed to load thumbnail:', item.thumbnail);
-                e.currentTarget.style.display = 'none';
+                // Don't hide, show placeholder instead
+                e.currentTarget.style.opacity = '0';
+              }}
+            />
+          ) : (
+            <ThumbnailPlaceholder title={item.title} />
+          )}
+          
+          {/* Video preview overlay - only shows on hover over thumbnail */}
+          {item.videoUrl && (
+            <video
+              ref={videoRef}
+              src={getMediaUrl(item.videoUrl)}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              poster={item.thumbnail ? getMediaUrl(item.thumbnail) : undefined}
+              style={{ objectFit: 'cover' }}
+              className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover/card:opacity-100 transition-opacity duration-500"
+              onLoadedMetadata={(e) => {
+                // Limit preview to 3 seconds
+                const video = e.currentTarget;
+                video.addEventListener('timeupdate', () => {
+                  if (video.currentTime >= 3) {
+                    video.currentTime = 0;
+                  }
+                });
               }}
             />
           )}
-          {/* Video preview - plays on hover */}
-          <video
-            ref={videoRef}
-            src={getMediaUrl(item.videoUrl)}
-            muted
-            loop
-            playsInline
-            preload="none"
-            style={{ objectFit: 'cover' }}
-            className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover/card:opacity-100 transition-opacity duration-300"
-            onLoadedMetadata={(e) => {
-              // Limit preview to 3 seconds
-              const video = e.currentTarget;
-              video.addEventListener('timeupdate', () => {
-                if (video.currentTime >= 3) {
-                  video.currentTime = 0;
-                }
-              });
-            }}
-          />
-          {!item.thumbnail && <ThumbnailPlaceholder title={item.title} />}
         </>
       ) : item.thumbnail ? (
         <img
@@ -188,7 +194,7 @@ export function MediaCard({
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
           onError={(e) => {
             console.error('Failed to load thumbnail:', item.thumbnail);
-            e.currentTarget.style.display = 'none';
+            e.currentTarget.style.opacity = '0';
           }}
         />
       ) : (
@@ -198,8 +204,22 @@ export function MediaCard({
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent opacity-80 group-hover/card:opacity-100 transition-opacity duration-300" />
 
-      {/* Play/View button */}
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
+      {/* Fixed Play indicator disc for videos - always visible */}
+      {item.type === "video" && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+          <div className="relative">
+            {/* Outer ring glow */}
+            <div className="absolute inset-0 bg-primary/30 rounded-full blur-xl animate-pulse" />
+            {/* Play disc */}
+            <div className="relative bg-background/80 backdrop-blur-md rounded-full p-4 border-2 border-primary/60 shadow-[0_8px_32px_rgba(0,0,0,0.6)] group-hover/card:scale-110 group-hover/card:bg-primary/90 group-hover/card:border-primary transition-all duration-300">
+              <Play className="h-8 w-8 fill-primary text-primary group-hover/card:fill-primary-foreground group-hover/card:text-primary-foreground transition-colors duration-300" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Play/View button - appears on hover */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 pointer-events-none">
         <div className="bg-primary/90 rounded-full p-3 shadow-[var(--shadow-glow)] scale-75 group-hover/card:scale-100 transition-transform duration-300">
           {item.type === "video" ? (
             <Play className="h-6 w-6 fill-primary-foreground text-primary-foreground" />
@@ -256,6 +276,13 @@ export function MediaCard({
 
       {/* Ring glow on hover */}
       <div className="absolute inset-0 rounded-lg ring-0 group-hover/card:ring-1 ring-primary/40 transition-all pointer-events-none" />
+      
+      {/* NEW badge for recent uploads (< 24 hours) */}
+      {item.isNew && (
+        <div className="absolute top-2 left-2 z-10 px-3 py-1 bg-primary rounded-full text-primary-foreground text-xs font-bold uppercase tracking-wider shadow-lg animate-pulse">
+          New
+        </div>
+      )}
     </div>
   );
 }

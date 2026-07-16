@@ -43,6 +43,8 @@ export interface MediaItem {
   featured?: boolean;
   /** ISO timestamp when the memory was added (for On This Day) */
   createdAt?: string;
+  /** Flag indicating if the item was uploaded in the last 24 hours */
+  isNew?: boolean;
 }
 
 export interface Collection {

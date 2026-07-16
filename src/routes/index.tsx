@@ -29,6 +29,7 @@ import { useBranding } from "@/context/branding";
 import { useProfile } from "@/context/profile";
 import { Film, Upload, AlertCircle } from "lucide-react";
 import { fetchApiJson } from "@/lib/fetchApi";
+import { getDashboardSetting, saveDashboardSetting } from "@/lib/dashboard-settings";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -47,12 +48,24 @@ function Index() {
   const navigate = useNavigate();
   const welcomeRainfallTriggered = useRef(false);
 
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(() => {
+    // Load from localStorage on mount
+    return getDashboardSetting('featuredAlbums')?.[0] || null;
+  });
   const [playingItem, setPlayingItem] = useState<MediaItem | null>(null);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
+  
+  // Save active category to localStorage whenever it changes
+  useEffect(() => {
+    if (activeCategory) {
+      saveDashboardSetting('featuredAlbums', [activeCategory]);
+    } else {
+      saveDashboardSetting('featuredAlbums', []);
+    }
+  }, [activeCategory]);
 
   // Fetch both collections and media from backend
   useEffect(() => {

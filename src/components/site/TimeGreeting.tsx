@@ -2,16 +2,21 @@
  * Time Greeting — Shows personalized greeting based on the viewer's local time of day.
  * Uses browser time (not server time) so each partner sees the correct greeting for their timezone.
  * Morning (5am-12pm), Afternoon (12pm-5pm), Evening (5pm-9pm), Night (9pm-5am)
+ * 
+ * IMPORTANT: Only shows greetings created by your PARTNER (not yourself)
+ * - The message should contain the viewer's name (e.g., "Good Morning Punts")
+ * - The attribution shows who wrote it (e.g., "— Ashish Poudel")
  */
 import { useEffect, useState } from "react";
 import { Sun, Cloud, Sunset, Moon } from "lucide-react";
 import { fetchApiJson } from "@/lib/fetchApi";
-import { useProfile } from "@/context/profile";
+import { getDashboardSetting, saveDashboardSetting } from "@/lib/dashboard-settings";
 
 interface GreetingTemplate {
   timeOfDay: string;
   message: string;
   isDefault: boolean;
+  creatorName?: string | null;
 }
 
 const TIME_ICONS = {
@@ -37,16 +42,7 @@ function getLocalTimeOfDay(): string {
   return "night";
 }
 
-/** Replace {name} placeholder in message with the partner's name */
-function personalizeMessage(message: string, name: string | undefined): string {
-  if (!name) return message;
-  // Replace {name} placeholder if present, otherwise prepend name
-  if (message.includes("{name}")) return message.replace(/\{name\}/g, name);
-  return message;
-}
-
 export function TimeGreeting() {
-  const { activeProfile } = useProfile();
   const [greetingTemplate, setGreetingTemplate] = useState<GreetingTemplate | null>(null);
   const [timeOfDay, setTimeOfDay] = useState<string>(getLocalTimeOfDay());
   const [loading, setLoading] = useState(true);
@@ -54,10 +50,35 @@ export function TimeGreeting() {
   const loadGreeting = async () => {
     const localTimeOfDay = getLocalTimeOfDay();
     setTimeOfDay(localTimeOfDay);
+    
+    // Try to load cached greeting first
+    const cachedGreeting = getDashboardSetting('lastTimeGreeting');
+    const cacheAge = cachedGreeting?.timestamp ? Date.now() - cachedGreeting.timestamp : Infinity;
+    const cacheValid = cacheAge < 30 * 60 * 1000; // Cache valid for 30 minutes
+    
+    if (cachedGreeting && cacheValid && cachedGreeting.timeOfDay === localTimeOfDay) {
+      setGreetingTemplate({
+        timeOfDay: cachedGreeting.timeOfDay,
+        message: cachedGreeting.message,
+        creatorName: cachedGreeting.creatorName,
+        isDefault: false,
+      });
+      setLoading(false);
+      return;
+    }
+    
     try {
       // Fetch greeting templates from backend, but use local time to pick the right one
       const data = await fetchApiJson<GreetingTemplate>(`/greetings/current?timeOfDay=${localTimeOfDay}`);
       setGreetingTemplate(data);
+      
+      // Save to cache (convert null to undefined for consistency)
+      saveDashboardSetting('lastTimeGreeting', {
+        timeOfDay: localTimeOfDay,
+        message: data.message,
+        creatorName: data.creatorName ?? undefined,
+        timestamp: Date.now(),
+      });
     } catch {
       // Fallback defaults keyed by local time
       const defaults: Record<string, string> = {
@@ -66,10 +87,18 @@ export function TimeGreeting() {
         evening: "Good evening, beautiful! 🌅",
         night: "Sweet dreams, my love! 🌙",
       };
-      setGreetingTemplate({
+      const fallbackGreeting = {
         timeOfDay: localTimeOfDay,
         message: defaults[localTimeOfDay] || "Hello! 💕",
         isDefault: true,
+      };
+      setGreetingTemplate(fallbackGreeting);
+      
+      // Save fallback to cache
+      saveDashboardSetting('lastTimeGreeting', {
+        timeOfDay: localTimeOfDay,
+        message: fallbackGreeting.message,
+        timestamp: Date.now(),
       });
     } finally {
       setLoading(false);
@@ -88,9 +117,11 @@ export function TimeGreeting() {
   const Icon = TIME_ICONS[timeOfDay as keyof typeof TIME_ICONS] || Sun;
   const gradient = TIME_GRADIENTS[timeOfDay as keyof typeof TIME_GRADIENTS] || TIME_GRADIENTS.morning;
 
-  // Personalize with the active profile's name
-  const profileName = activeProfile?.name;
-  const message = personalizeMessage(greetingTemplate.message, profileName);
+  // The greeting creator's name (who wrote the message for you)
+  const creatorName = greetingTemplate.creatorName;
+  
+  // Display the message as-is (it should already contain the viewer's name if personalized)
+  const message = greetingTemplate.message;
 
   return (
     <section className="relative py-16 px-6 lg:px-12 overflow-hidden">
@@ -115,10 +146,10 @@ export function TimeGreeting() {
           {message}
         </h2>
 
-        {/* Profile name tag */}
-        {profileName && (
+        {/* Profile name tag - shows who wrote the greeting for you */}
+        {creatorName && (
           <p className="text-sm text-primary/80 font-medium mb-3 tracking-wide">
-            — {profileName}
+            — {creatorName}
           </p>
         )}
 

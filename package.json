@@ -33,7 +33,8 @@
     "cap:android": "npx cap open android",
     "cap:run:ios": "npx cap run ios",
     "cap:run:android": "npx cap run android",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "production:secrets": "node scripts/generate-jwt-secret.js"
   },
   "dependencies": {
     "@clerk/tanstack-react-start": "^1.4.12",
