@@ -105,15 +105,36 @@ export async function createTables(): Promise<void> {
       );
     `);
 
-    // Migration: add user_id column if missing (must come before index creation)
+    // Migration: add/backfill user_id column if missing (must come before index creation)
     await client.query(`
-      DO $$ BEGIN
+      DO $$
+      DECLARE
+        fallback_user_id INTEGER;
+      BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM information_schema.columns
           WHERE table_name='profiles' AND column_name='user_id'
         ) THEN
-          ALTER TABLE profiles ADD COLUMN user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE;
+          ALTER TABLE profiles ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
         END IF;
+
+        IF EXISTS (SELECT 1 FROM profiles WHERE user_id IS NULL) THEN
+          SELECT id INTO fallback_user_id FROM users ORDER BY id LIMIT 1;
+
+          IF fallback_user_id IS NULL THEN
+            INSERT INTO users (email, display_name)
+            VALUES ('legacy-profiles@usflix.local', 'Legacy Profiles')
+            ON CONFLICT (email) DO UPDATE
+              SET display_name = users.display_name
+            RETURNING id INTO fallback_user_id;
+          END IF;
+
+          UPDATE profiles
+          SET user_id = fallback_user_id
+          WHERE user_id IS NULL;
+        END IF;
+
+        ALTER TABLE profiles ALTER COLUMN user_id SET NOT NULL;
       END $$;
     `);
 
