@@ -195,7 +195,9 @@ async function convertIfNeeded(
 
     try {
       duration = await getVideoDuration(videoForThumb);
-    } catch {}
+    } catch {
+      // Duration is optional; keep upload successful if probing fails.
+    }
 
     return { filename: finalFilename, url: finalUrl, thumbnailUrl, duration };
   }
@@ -209,7 +211,11 @@ async function convertIfNeeded(
     try {
       await generateVideoThumbnail(videoPath, thumbnailPath, 1);
       let duration: number | undefined;
-      try { duration = await getVideoDuration(videoPath); } catch {}
+      try {
+        duration = await getVideoDuration(videoPath);
+      } catch {
+        // Duration is optional; keep upload successful if probing fails.
+      }
       return {
         filename: file.filename,
         url: `${urlBase}/${file.filename}`,

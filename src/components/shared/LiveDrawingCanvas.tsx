@@ -3,7 +3,7 @@
  * Real-time collaborative drawing canvas with partner.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/tanstack-react-start";
 import { Loader2, Trash2, Palette, Pencil } from "lucide-react";
 import { useLinkStatus } from "@/context/link-status";
 import { useWebSocketEvent } from "@/context/websocket";

@@ -3,7 +3,7 @@
  * Manages shared messages between linked partners.
  */
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/tanstack-react-start";
 import { api } from "@/lib/api";
 import { useWebSocketEvent } from "./websocket";
 import { useLinkStatus } from "./link-status";

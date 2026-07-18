@@ -1,0 +1,63 @@
+# Render Blueprint for USFLIX Backend
+# This file enables one-click deployment to Render
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # Backend API Service
+  - type: web
+    name: usflix-backend
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: UPLOAD_DIR
+        value: /opt/render/project/uploads
+      - key: MAX_FILE_SIZE
+        value: 4294967296
+      - key: COOKIE_SAME_SITE
+        value: none
+      - key: DISABLE_RATE_LIMIT
+        value: false
+      - key: SEED_DEMO_DATA
+        value: false
+      # Secrets - Add these manually in Render Dashboard
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: usflix-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: USER_JWT_SECRET
+        generateValue: true
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+
+databases:
+  # PostgreSQL Database
+  - name: usflix-db
+    plan: free
+    databaseName: usflix
+    user: usflix
+
+# Persistent disk for file uploads is optional and requires a paid web service.
+# Add this inside the web service above if you enable persistent uploads:
+#     disk:
+#       name: usflix-uploads
+#       mountPath: /opt/render/project/uploads
+#       sizeGB: 1

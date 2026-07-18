@@ -3,7 +3,7 @@
  * Daily activity completion card with streak tracking.
  */
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/tanstack-react-start";
 import { Loader2, Flame, CheckCircle2, Heart, Calendar, Trophy } from "lucide-react";
 import { useLinkStatus } from "@/context/link-status";
 import { useWebSocketEvent } from "@/context/websocket";

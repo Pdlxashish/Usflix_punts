@@ -14,7 +14,7 @@ export interface PartnerInviteState {
     status: string;
     expiresAt: string;
     createdAt?: string;
-  };
+  } | null;
 }
 
 export function usePartnerInvite() {

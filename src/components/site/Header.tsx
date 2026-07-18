@@ -213,7 +213,7 @@ export function Header() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate({ to: "/sign-in/$", params: { _splat: "" } });
+    navigate({ to: "/sign-in/$", params: { _splat: "" }, search: { redirect: undefined } });
   };
 
   const handleSwitchProfile = () => {

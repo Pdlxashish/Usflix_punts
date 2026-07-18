@@ -10,6 +10,7 @@ import {
   ActivityCompletedEvent,
   LocationUpdateEvent,
   AlbumNewMediaEvent,
+  CanvasUpdatedEvent,
   BucketListToggledEvent,
   BucketListAddedEvent,
   BucketListUpdatedEvent,
@@ -118,14 +119,15 @@ export function broadcastLocationUpdate(
   location: {
     latitude: number;
     longitude: number;
+    accuracy?: number | null;
     timestamp: string;
   }
 ) {
   const event: LocationUpdateEvent = {
     type: "location:update",
     data: {
-      userId: senderId,
       ...location,
+      accuracy: location.accuracy ?? null,
     },
     timestamp: new Date().toISOString(),
   };
@@ -263,7 +265,7 @@ export function broadcastCanvasUpdate(
     drawingData: string;
   }
 ) {
-  const event = {
+  const event: CanvasUpdatedEvent = {
     type: "canvas:updated",
     data: {
       ...canvas,

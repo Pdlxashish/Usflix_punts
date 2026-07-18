@@ -13,7 +13,7 @@ interface InviteStatus {
   partner?: { email: string; displayName: string };
   invite?: {
     id: string;
-    code: string;
+    token: string;
     inviteUrl: string;
     invitedEmail?: string;
     expiresAt: string;
@@ -39,7 +39,7 @@ export function PartnerInviteTab() {
         invite: data.invite
           ? {
               id: data.invite.id,
-              code: data.invite.token,
+              token: data.invite.token,
               inviteUrl: data.invite.inviteUrl,
               invitedEmail: data.invite.invitedEmail,
               expiresAt: data.invite.expiresAt,

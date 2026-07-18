@@ -3,7 +3,7 @@
  * Manages partner link status throughout the application.
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/tanstack-react-start";
 
 interface PartnerInfo {
   userId: number;

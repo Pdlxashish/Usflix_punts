@@ -57,11 +57,19 @@ function validateCoordinates(latitude: number, longitude: number): string | null
   return null;
 }
 
+async function getUserCoupleId(userId: number): Promise<string | null> {
+  const { rows } = await pool.query(
+    `SELECT couple_id FROM profiles WHERE user_id = $1 AND is_primary = true LIMIT 1`,
+    [userId]
+  );
+  return rows[0]?.couple_id ?? null;
+}
+
 /**
  * Store a location update from the user
  */
 export async function storeLocationUpdate(
-  userId: string,
+  userId: number,
   location: LocationUpdate
 ): Promise<LocationResult> {
   try {
@@ -106,7 +114,7 @@ export async function storeLocationUpdate(
     );
 
     // Broadcast to partner via WebSocket
-    await broadcastToPartner(userId, {
+    broadcastToPartner(coupleId, userId, {
       type: "location:update",
       data: {
         latitude: location.latitude,
@@ -114,6 +122,7 @@ export async function storeLocationUpdate(
         accuracy: location.accuracy || null,
         timestamp: timestamp.toISOString(),
       },
+      timestamp: new Date().toISOString(),
     });
 
     return { ok: true };
@@ -126,7 +135,7 @@ export async function storeLocationUpdate(
 /**
  * Get partner's latest location
  */
-export async function getPartnerLocation(userId: string): Promise<PartnerLocationResult> {
+export async function getPartnerLocation(userId: number): Promise<PartnerLocationResult> {
   try {
     // Get user's couple_id
     const userResult = await pool.query(
@@ -208,7 +217,7 @@ export async function getPartnerLocation(userId: string): Promise<PartnerLocatio
  * Update location sharing settings
  */
 export async function updateLocationSettings(
-  userId: string,
+  userId: number,
   enabled: boolean
 ): Promise<LocationSettings> {
   try {
@@ -220,12 +229,16 @@ export async function updateLocationSettings(
     );
 
     // Broadcast settings change to partner
-    await broadcastToPartner(userId, {
-      type: "location:settings_changed",
-      data: {
-        enabled,
-      },
-    });
+    const coupleId = await getUserCoupleId(userId);
+    if (coupleId) {
+      broadcastToPartner(coupleId, userId, {
+        type: "location:settings_changed",
+        data: {
+          enabled,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     return { ok: true, enabled };
   } catch (error) {
@@ -237,7 +250,7 @@ export async function updateLocationSettings(
 /**
  * Get location sharing settings
  */
-export async function getLocationSettings(userId: string): Promise<LocationSettings> {
+export async function getLocationSettings(userId: number): Promise<LocationSettings> {
   try {
     const result = await pool.query(
       `SELECT location_sharing_enabled FROM profiles WHERE user_id = $1 AND is_primary = true LIMIT 1`,

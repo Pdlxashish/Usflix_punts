@@ -12,6 +12,7 @@ export type WebSocketEventType =
   | "location:update"
   | "location:settings_changed"
   | "album:new_media"
+  | "canvas:updated"
   | "bucketlist:updated"
   | "bucketlist:toggled"
   | "bucketlist:added"
@@ -99,6 +100,14 @@ export interface LocationSettingsChangedEvent extends BaseWebSocketEvent {
   };
 }
 
+export interface CanvasUpdatedEvent extends BaseWebSocketEvent {
+  type: "canvas:updated";
+  data: {
+    drawingData: string;
+    userId: number;
+  };
+}
+
 // Album Events
 export interface AlbumNewMediaEvent extends BaseWebSocketEvent {
   type: "album:new_media";
@@ -163,6 +172,7 @@ export type WebSocketEvent =
   | LocationUpdateEvent
   | LocationSettingsChangedEvent
   | AlbumNewMediaEvent
+  | CanvasUpdatedEvent
   | BucketListToggledEvent
   | BucketListAddedEvent
   | BucketListUpdatedEvent

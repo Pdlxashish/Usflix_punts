@@ -6,12 +6,16 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { nitro } from "nitro/vite";
 
-const useHttps = process.env.VITE_DEV_HTTPS !== "false";
+const isVercel = process.env.VERCEL === "1" || process.env.VERCEL === "true";
+const useHttps = process.env.VITE_DEV_HTTPS !== "false" && !isVercel;
 
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
+  cloudflare: isVercel ? false : undefined,
+  plugins: isVercel ? [nitro()] : [],
   tanstackStart: {
     server: { entry: "server" },
   },

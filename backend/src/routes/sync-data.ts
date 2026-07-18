@@ -72,10 +72,9 @@ router.post("/all-couples", async (req: Request, res: Response) => {
     // TODO: Add admin authentication check here
     const result = await syncAllExistingCouples();
 
-    res.json({
-      ok: true,
-      message: "Sync completed for all couples",
+    res.status(result.ok ? 200 : 500).json({
       ...result,
+      message: result.ok ? "Sync completed for all couples" : "Sync failed for all couples",
     });
   } catch (error) {
     console.error("Sync all couples error:", error);

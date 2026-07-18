@@ -103,7 +103,11 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 /** PUT /api/bucket-list/:id */
 router.put("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!id) {
+      res.status(400).json({ ok: false, error: "Item ID is required" });
+      return;
+    }
     const { item, emoji, sortRank } = req.body;
     if (!item?.trim()) {
       res.status(400).json({ ok: false, error: "item is required" });
@@ -152,7 +156,11 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
 /** PATCH /api/bucket-list/:id/toggle — toggle completed status */
 router.patch("/:id/toggle", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!id) {
+      res.status(400).json({ ok: false, error: "Item ID is required" });
+      return;
+    }
 
     const userId = await getSpaceUserIdFromRequest(req);
     if (!userId) {
@@ -212,7 +220,11 @@ router.patch("/:id/toggle", requireAuth, async (req: Request, res: Response) => 
 /** DELETE /api/bucket-list/:id */
 router.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!id) {
+      res.status(400).json({ ok: false, error: "Item ID is required" });
+      return;
+    }
 
     const userId = await getSpaceUserIdFromRequest(req);
     if (!userId) {

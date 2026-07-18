@@ -3,7 +3,7 @@
  * Display real-time GPS location of you and your partner on a map.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/tanstack-react-start";
 import { MapPin, Navigation, Loader2, RefreshCw, Settings, Eye, EyeOff } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";

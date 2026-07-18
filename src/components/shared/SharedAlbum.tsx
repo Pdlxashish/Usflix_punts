@@ -3,7 +3,7 @@
  * Displays shared media from both partners with filtering options.
  */
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/tanstack-react-start";
 import { Loader2, Image as ImageIcon, Video, Filter, User, Users } from "lucide-react";
 import { useLinkStatus } from "@/context/link-status";
 import { useWebSocketEvent } from "@/context/websocket";

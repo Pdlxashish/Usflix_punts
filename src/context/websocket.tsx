@@ -24,7 +24,29 @@ interface WebSocketContextValue {
 
 const WebSocketContext = createContext<WebSocketContextValue | undefined>(undefined);
 
-const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3001/ws";
+function resolveWebSocketUrl(): string {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+
+  const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
+  if (apiUrl) {
+    return `${apiUrl.replace(/^http/, "ws")}/ws`;
+  }
+
+  if (!import.meta.env.PROD) {
+    return "ws://localhost:3001/ws";
+  }
+
+  if (typeof window !== "undefined") {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}/ws`;
+  }
+
+  return "ws://localhost:3001/ws";
+}
+
+const WS_URL = resolveWebSocketUrl();
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000; // 1 second
 const MAX_RECONNECT_DELAY = 30000; // 30 seconds

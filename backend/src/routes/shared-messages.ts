@@ -110,7 +110,14 @@ router.put("/messages/read", requireUserAuth, async (req: Request, res: Response
 router.delete("/messages/:messageId", requireUserAuth, async (req: Request, res: Response) => {
   try {
     const userId = getRequestUserId(req)!;
-    const { messageId } = req.params;
+    const messageId = Array.isArray(req.params.messageId)
+      ? req.params.messageId[0]
+      : req.params.messageId;
+
+    if (!messageId) {
+      res.status(400).json({ ok: false, error: "Message ID is required" });
+      return;
+    }
 
     const result = await deleteMessage(userId, messageId);
 

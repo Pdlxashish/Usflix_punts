@@ -42,7 +42,9 @@ function getDeviceProfileUsage(): ProfileUsage {
 function saveDeviceProfileUsage(usage: ProfileUsage): void {
   try {
     localStorage.setItem(PROFILE_USAGE_KEY, JSON.stringify(usage));
-  } catch {}
+  } catch {
+    // Profile usage is a convenience hint; ignore storage failures.
+  }
 }
 
 function recordProfileUsage(profileId: string): void {

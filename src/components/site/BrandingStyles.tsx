@@ -52,7 +52,7 @@ export function BrandingStyles() {
     // Check if background is a video
     const bgUrl = branding.backgroundImageUrl;
     const isVideoFile = bgUrl && /\.(mp4|mov|webm|ogg)$/i.test(bgUrl);
-    setIsVideo(isVideoFile);
+    setIsVideo(Boolean(isVideoFile));
     
     // Reset background
     body.style.backgroundImage = "";
